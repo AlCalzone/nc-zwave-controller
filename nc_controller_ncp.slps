@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="ASCII"?>
+<model:MDescriptors xmlns:model="http://www.silabs.com/ss/Studio.ecore">
+  <descriptors name="nc_controller_ncp">
+    <properties key="projectCommon.sdkId" value="com.silabs.sdk.stack.sisdk:2024.6.2._-1669494151"/>
+    <properties key="universalConfig.relativeWorkspacePath" value="..\nc_controller_ncp.slcw"/>
+    <properties key="universalConfig.generationDirectory" value=""/>
+    <properties key="universalConfig.toolchainCompatibility" value="iar gcc"/>
+    <properties key="projectCommon.boardIds" value="com.silabs.board.none:0.0.0"/>
+    <properties key="projectCommon.kitId" value=""/>
+    <properties key="projectCommon.partId" value="mcu.arm.efr32.zg23.efr32zg23a020f512gm40"/>
+    <properties key="projectCommon.toolchainId" value="com.silabs.ss.tool.ide.arm.toolchain.gnu.cdt:12.2.1.20221205"/>
+    <properties key="universalConfig.projectTypeIds" value="com.silabs.ss.framework.ide.project.core.cdtMbsProjectType"/>
+    <properties key="projectCommon.importModeId" value="COPY"/>
+    <properties key="universalConfig.compSelProjInstanceId" value="1732799364988"/>
+  </descriptors>
+</model:MDescriptors>
