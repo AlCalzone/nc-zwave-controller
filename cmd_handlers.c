@@ -292,8 +292,8 @@ ZCB_ComplHandler_ZW_SendNodeInformation(
     uint8_t txStatus, /* IN   Transmit completion status  */
     __attribute__((unused)) TX_STATUS_TYPE *txStatusReport)
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SendNodeInformation;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SendNodeInformation;
+  compl_workbuf[1] = txStatus;
   Request(FUNC_ID_ZW_SEND_NODE_INFORMATION, compl_workbuf, 2);
 }
 
@@ -324,6 +324,15 @@ ZW_ADD_CMD(FUNC_ID_ZW_SECURITY_SETUP)
 uint8_t funcID_ComplHandler_ZW_SendData;
 #endif
 
+#if SUPPORT_ZW_SEND_PROTOCOL_DATA
+
+static struct
+{
+  uint8_t session_id;
+  uint8_t callback_id;
+} nlsEncryptionMetadata = { 0 };
+#endif
+
 #if SUPPORT_ZW_SEND_DATA || SUPPORT_ZW_SEND_DATA_EX || SUPPORT_ZW_SEND_DATA_BRIDGE
 static void
 GenerateTxStatusRequest(
@@ -333,35 +342,35 @@ GenerateTxStatusRequest(
     TX_STATUS_TYPE *txStatusReport) /* IN   Transmit completion status  */
 {
   uint8_t bIdx = 0;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = txStatusfuncID;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = txStatus;
+  compl_workbuf[bIdx++] = txStatusfuncID;
+  compl_workbuf[bIdx++] = txStatus;
   if (bTxStatusReportEnabled /* Do HOST want txStatusReport */
       && txStatusReport)     /* Check if detailed info is available from protocol */
   {
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)((((txStatusReport->TransmitTicks / 10) & 0xFFFFFF) >> 8) & 0xFF);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(((txStatusReport->TransmitTicks / 10) & 0xFFFFFF) & 0xFF);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bRepeaters);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->rssi_values.incoming[0]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->rssi_values.incoming[1]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->rssi_values.incoming[2]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->rssi_values.incoming[3]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->rssi_values.incoming[4]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bACKChannelNo);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bLastTxChannelNo);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bRouteSchemeState);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->pLastUsedRoute[0]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->pLastUsedRoute[1]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->pLastUsedRoute[2]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->pLastUsedRoute[3]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->pLastUsedRoute[4]);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bRouteTries);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bLastFailedLink.from);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bLastFailedLink.to);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bUsedTxpower);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bMeasuredNoiseFloor);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bDestinationAckUsedTxPower);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bDestinationAckMeasuredRSSI);
-    BYTE_IN_AR(compl_workbuf, bIdx++) = (uint8_t)(txStatusReport->bDestinationAckMeasuredNoiseFloor);
+    compl_workbuf[bIdx++] = (uint8_t)((((txStatusReport->TransmitTicks / 10) & 0xFFFFFF) >> 8) & 0xFF);
+    compl_workbuf[bIdx++] = (uint8_t)(((txStatusReport->TransmitTicks / 10) & 0xFFFFFF) & 0xFF);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bRepeaters);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->rssi_values.incoming[0]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->rssi_values.incoming[1]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->rssi_values.incoming[2]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->rssi_values.incoming[3]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->rssi_values.incoming[4]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bACKChannelNo);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bLastTxChannelNo);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bRouteSchemeState);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->pLastUsedRoute[0]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->pLastUsedRoute[1]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->pLastUsedRoute[2]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->pLastUsedRoute[3]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->pLastUsedRoute[4]);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bRouteTries);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bLastFailedLink.from);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bLastFailedLink.to);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bUsedTxpower);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bMeasuredNoiseFloor);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bDestinationAckUsedTxPower);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bDestinationAckMeasuredRSSI);
+    compl_workbuf[bIdx++] = (uint8_t)(txStatusReport->bDestinationAckMeasuredNoiseFloor);
   }
   Request(cmd, compl_workbuf, bIdx);
 }
@@ -511,8 +520,8 @@ ZCB_ComplHandler_ZW_SendDataMulti(
     uint8_t txStatus,
     __attribute__((unused)) TX_STATUS_TYPE *txStatusType) /* IN   Transmit completion status  */
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SendDataMulti;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SendDataMulti;
+  compl_workbuf[1] = txStatus;
   Request(FUNC_ID_ZW_SEND_DATA_MULTI, compl_workbuf, 2);
 }
 
@@ -571,8 +580,8 @@ ZCB_ComplHandler_ZW_SendDataMultiEx(
     uint8_t txStatus, /* IN   Transmit completion status  */
     __attribute__((unused)) TX_STATUS_TYPE* extendedTxStatus)
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SendDataMultiEx;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SendDataMultiEx;
+  compl_workbuf[1] = txStatus;
   Request(FUNC_ID_ZW_SEND_DATA_MULTI_EX, compl_workbuf, 2);
 }
 
@@ -699,8 +708,8 @@ ZCB_ComplHandler_ZW_SendDataMulti_Bridge(
     uint8_t txStatus, /* IN   Transmit completion status  */
     __attribute__((unused)) TX_STATUS_TYPE* extendedTxStatus)
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SendDataMulti;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SendDataMulti;
+  compl_workbuf[1] = txStatus;
   Request(FUNC_ID_ZW_SEND_DATA_MULTI_BRIDGE, compl_workbuf, 2);
 }
 
@@ -810,6 +819,111 @@ ZW_ADD_CMD(FUNC_ID_ZW_SEND_DATA_MULTI_BRIDGE)
 }
 #endif
 
+#if (defined(SUPPORT_ZW_SEND_PROTOCOL_DATA) && SUPPORT_ZW_SEND_PROTOCOL_DATA )
+static void ZCB_ComplHandler_ZW_SendProtocolData(
+    uint8_t txStatus,
+    TX_STATUS_TYPE *txStatusReport) /* IN   Transmit completion status  */
+{
+  GenerateTxStatusRequest(FUNC_ID_ZW_SEND_PROTOCOL_DATA, nlsEncryptionMetadata.session_id, txStatus, txStatusReport);
+}
+
+static uint8_t SendProtocolData(node_id_t destNodeID,
+                                uint8_t dataLength,
+                                const uint8_t * const pData,
+                                uint8_t protocolMetadataLength,
+                                const uint8_t * const protocolMetadata,
+                                ZW_TX_Callback_t pCallback)
+{
+  SZwaveTransmitPackage FramePackage = { 0 };
+
+  FramePackage.eTransmitType = EZWAVETRANSMITTYPE_NLS;
+  FramePackage.uTransmitParams.SendProtocolData.DestNodeID = destNodeID;
+  FramePackage.uTransmitParams.SendProtocolData.FrameConfig.Handle = pCallback;
+  FramePackage.uTransmitParams.SendProtocolData.FrameConfig.protocolMetadataLength = protocolMetadataLength;
+  FramePackage.uTransmitParams.SendProtocolData.FrameConfig.FrameLength = dataLength;
+
+  assert(dataLength < TX_BUFFER_SIZE);
+  assert(protocolMetadataLength == PROTOCOL_METADATA_LENGTH);
+  if (dataLength > TX_BUFFER_SIZE || protocolMetadataLength != PROTOCOL_METADATA_LENGTH)
+  {
+    return false;
+  }
+  memcpy(&FramePackage.uTransmitParams.SendProtocolData.FrameConfig.aFrame, pData, dataLength);
+  memcpy(&FramePackage.uTransmitParams.SendProtocolData.FrameConfig.protocolMetadata, protocolMetadata, protocolMetadataLength);
+
+  nlsEncryptionMetadata.callback_id = protocolMetadata[PROTOCOL_METADATA_CALLBACK_ID_IDX];
+
+  // Put the package on queue (and don't wait for it)
+  EQueueNotifyingStatus QueueStatus = QueueNotifyingSendToBack(ZAF_getZwTxQueue(), (uint8_t*) &FramePackage, 0);
+  return (EQUEUENOTIFYING_STATUS_SUCCESS == QueueStatus) ? true : false;
+}
+
+ZW_ADD_CMD(FUNC_ID_ZW_SEND_PROTOCOL_DATA)
+{
+  /* HOST->ZW: srcNodeID | destNodeID | dataLength | pData[] | protocolMetadataLength | protocolMetadata[] | sessionID */
+  uint8_t retVal = 0;
+  uint8_t index = 1;
+  node_id_t destNodeID = (node_id_t) GET_NODEID(&frame->payload[0], index);
+  uint8_t dataLength = frame->payload[index++];
+
+  if (dataLength > BUF_SIZE_RX)
+  {
+    DoRespond(retVal);
+    return;
+  }
+  const uint8_t * const pData = &frame->payload[index];
+  index += dataLength;
+  uint8_t protocolMetadataLength = frame->payload[index++];
+  assert(protocolMetadataLength == PROTOCOL_METADATA_LENGTH);
+  const uint8_t * const protocolMetadata = &frame->payload[index];
+  index += protocolMetadataLength;
+  nlsEncryptionMetadata.session_id = frame->payload[index];
+
+  // Create transmit frame package
+  retVal = SendProtocolData(destNodeID, dataLength, pData, protocolMetadataLength, protocolMetadata, ZCB_ComplHandler_ZW_SendProtocolData);
+  DoRespond(retVal);
+}
+
+#endif
+
+#if (defined(SUPPORT_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION) && SUPPORT_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION )
+
+static bool ActivateProtocolCallback(uint8_t callbackId, uint8_t tx_status, TX_STATUS_TYPE extended_tx_status)
+{
+  SZwaveCommandPackage FramePackage = { 0 };
+  
+  FramePackage.eCommandType = EZWAVECOMMANDTYPE_SEND_PROTOCOL_DATA_CB;
+  FramePackage.uCommandParams.SendProtocolDataCb.callback_id = callbackId;
+  FramePackage.uCommandParams.SendProtocolDataCb.tx_status = tx_status;
+  FramePackage.uCommandParams.SendProtocolDataCb.extended_tx_status = extended_tx_status;
+
+  //Put the package on queue (and don't wait for it)
+  EQueueNotifyingStatus QueueStatus = QueueNotifyingSendToBack(ZAF_getZwCommandQueue(), (uint8_t*) &FramePackage, 0);
+  return (EQUEUENOTIFYING_STATUS_SUCCESS == QueueStatus) ? true : false;
+}
+
+ZW_ADD_CMD(FUNC_ID_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION)
+{
+  uint8_t idx = 0;
+  uint8_t session_id = 0;
+  volatile uint8_t rpcce_tx_status = TRANSMIT_COMPLETE_FAIL;
+  TX_STATUS_TYPE extended_tx_status = { 0 };
+
+  session_id = frame->payload[idx++];
+  if (session_id != nlsEncryptionMetadata.session_id)
+  {
+    return;
+  }
+  rpcce_tx_status = frame->payload[idx++];
+  memcpy(&extended_tx_status, &frame->payload[idx], sizeof(TX_STATUS_TYPE));
+
+  if (rpcce_tx_status == TRANSMIT_COMPLETE_VERIFIED)
+  {
+    ActivateProtocolCallback(nlsEncryptionMetadata.callback_id, rpcce_tx_status, extended_tx_status);
+  }
+  set_state_and_notify(stateIdle);
+}
+#endif
 
 #if SUPPORT_MEMORY_GET_ID
 ZW_ADD_CMD(FUNC_ID_MEMORY_GET_ID)
@@ -899,7 +1013,7 @@ uint8_t funcID_ComplHandler_MemoryPutBuffer;
 static void                                /* RET  Nothing */
 ZCB_ComplHandler_MemoryPutBuffer(void)  /* IN   Nothing */
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_MemoryPutBuffer;
+  compl_workbuf[0] = funcID_ComplHandler_MemoryPutBuffer;
   Request(FUNC_ID_MEMORY_PUT_BUFFER, compl_workbuf, 1);
 }
 
@@ -1082,16 +1196,6 @@ ZW_ADD_CMD(FUNC_ID_NVR_GET_VALUE)
 }
 #endif
 
-
-#if SUPPORT_SERIAL_API_GET_APPL_HOST_MEMORY_OFFSET
-ZW_ADD_CMD(FUNC_ID_SERIAL_API_GET_APPL_HOST_MEMORY_OFFSET)
-{
-  DoRespond(0);
-}
-#endif
-
-
-#if defined(ZW_SLAVE_ROUTING) || defined(ZW_CONTROLLER)
 uint8_t funcID_ComplHandler_netWork_Management;
 uint8_t management_Func_ID;
 
@@ -1105,8 +1209,8 @@ ZCB_ComplHandler_ZW_netWork_Management(
     TX_STATUS_TYPE *txStatusReport) /* IN Detailed transmit information */
 {
   uint8_t bIdx = 0;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = funcID_ComplHandler_netWork_Management;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = bStatus;
+  compl_workbuf[bIdx++] = funcID_ComplHandler_netWork_Management;
+  compl_workbuf[bIdx++] = bStatus;
   if (bTxStatusReportEnabled && txStatusReport) /* Check if detailed info is available from protocol */
   {
     memcpy(&compl_workbuf[bIdx], (uint8_t *)txStatusReport, sizeof(TX_STATUS_TYPE));
@@ -1114,7 +1218,6 @@ ZCB_ComplHandler_ZW_netWork_Management(
   }
   Request(management_Func_ID, compl_workbuf, bIdx);
 }
-#endif /*ZW_SLAVE_32 ZW_CONTROLLER*/
 
 
 #if SUPPORT_ZW_REQUEST_NETWORK_UPDATE
@@ -1153,8 +1256,8 @@ ZCB_ComplHandler_ZW_RequestNodeNeighborUpdate(
     uint8_t txStatus, /* IN   Transmit completion status */
     __attribute__((unused)) TX_STATUS_TYPE *txStatusReport)
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_RequestNodeNeighborUpdate;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_RequestNodeNeighborUpdate;
+  compl_workbuf[1] = txStatus;
   Request(FUNC_ID_ZW_REQUEST_NODE_NEIGHBOR_UPDATE, compl_workbuf, 2);
 }
 
@@ -1206,8 +1309,8 @@ ZCB_ComplHandler_ZW_RequestNodeTypeNeighborUpdate(
     uint8_t txStatus, /* IN   Transmit completion status */
     __attribute__((unused)) TX_STATUS_TYPE *txStatusReport)
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_RequestNodeTypeNeighborUpdate;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_RequestNodeTypeNeighborUpdate;
+  compl_workbuf[1] = txStatus;
   Request(FUNC_ID_ZW_REQUEST_NODETYPE_NEIGHBOR_UPDATE, compl_workbuf, 2);
 }
 
@@ -1277,7 +1380,7 @@ uint8_t funcID_ComplHandler_ZW_SetDefault;
 static void                          /* RET  Nothing */
 ZCB_ComplHandler_ZW_SetDefault(void) /* IN   Nothing */
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SetDefault;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SetDefault;
   Request(FUNC_ID_ZW_SET_DEFAULT, compl_workbuf, 1);
 }
 
@@ -1325,29 +1428,29 @@ ZCB_ComplHandler_ZW_NodeManagement(
 
   uint8_t offset = 0;
   addState = statusInfo->bStatus;
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_NodeManagement;
-  BYTE_IN_AR(compl_workbuf, 1) = (*statusInfo).bStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_NodeManagement;
+  compl_workbuf[1] = (*statusInfo).bStatus;
   if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
   {
-    BYTE_IN_AR(compl_workbuf, 2) = (uint8_t)(statusInfo->bSource >> 8); // MSB
-    BYTE_IN_AR(compl_workbuf, 3) = (uint8_t)(statusInfo->bSource & 0xFF);      // LSB
+    compl_workbuf[2] = (uint8_t)(statusInfo->bSource >> 8); // MSB
+    compl_workbuf[3] = (uint8_t)(statusInfo->bSource & 0xFF);      // LSB
     offset++;  // 16 bit nodeID means the command fields that follow are offset by one byte
   }
   else
   {
-    BYTE_IN_AR(compl_workbuf, 2) = (uint8_t)(statusInfo->bSource & 0xFF);      // Legacy 8 bit nodeID
+    compl_workbuf[2] = (uint8_t)(statusInfo->bSource & 0xFF);      // Legacy 8 bit nodeID
   }
   /*  - Buffer boundary check */
   if (statusInfo->bLen > (uint8_t)(BUF_SIZE_TX - (offset + 4)))
   {
     statusInfo->bLen = (uint8_t)(BUF_SIZE_TX - (offset + 4));
   }
-  BYTE_IN_AR(compl_workbuf, offset + 3) = statusInfo->bLen;
+  compl_workbuf[offset + 3] = statusInfo->bLen;
   if(statusInfo->pCmd != NULL)
   {
     for (uint8_t i = 0; i < statusInfo->bLen; i++)
     {
-      BYTE_IN_AR(compl_workbuf, offset + 4 + i) = statusInfo->pCmd[i];
+      compl_workbuf[offset + 4 + i] = statusInfo->pCmd[i];
     }
   }
   Request(nodeManagement_Func_ID, compl_workbuf, (uint8_t)(offset + statusInfo->bLen + 4));
@@ -1515,15 +1618,15 @@ ZCB_ComplHandler_ZW_SetLearnMode(
   node_id_t node_id;
 
   node_id = ZAF_GetNodeID();
-  BYTE_IN_AR(compl_workbuf, i++) = funcID_ComplHandler_ZW_SetLearnMode;
-  BYTE_IN_AR(compl_workbuf, i++) = (uint8_t)bStatus;
+  compl_workbuf[i++] = funcID_ComplHandler_ZW_SetLearnMode;
+  compl_workbuf[i++] = (uint8_t)bStatus;
   if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
   {
-    BYTE_IN_AR(compl_workbuf, i++) = (uint8_t)(node_id >> 8); // MSB 16bit node Id
+    compl_workbuf[i++] = (uint8_t)(node_id >> 8); // MSB 16bit node Id
   }
-  BYTE_IN_AR(compl_workbuf, i++) = (uint8_t)(node_id & 0xFF); // LSB(16bit)/Legacy 8 bit node Id
+  compl_workbuf[i++] = (uint8_t)(node_id & 0xFF); // LSB(16bit)/Legacy 8 bit node Id
   /* For safty we transmit len = 0, to indicate that no data follows */
-  BYTE_IN_AR(compl_workbuf, i++) = 0;
+  compl_workbuf[i++] = 0;
   Request(FUNC_ID_ZW_SET_LEARN_MODE, compl_workbuf, i);
 }
 #endif /* ZW_SLAVE */
@@ -1657,80 +1760,6 @@ ZW_ADD_CMD(FUNC_ID_ZW_EXPLORE_REQUEST_EXCLUSION)
 }
 #endif
 
-
-#if SUPPORT_ZW_REPLICATION_COMMAND_COMPLETE
-static void ReplicationComplete(void)
-{
-  /*  */
-  // Create transmit frame package
-  SZwaveTransmitPackage FramePackage = {
-    .eTransmitType = EZWAVETRANSMITTYPE_SENDREPLICATIONRECEIVECOMPLETE
-  };
-  // Put the package on queue (and dont wait for it)
-  QueueNotifyingSendToBack(ZAF_getZwTxQueue(), (uint8_t *)&FramePackage, 0);
-}
-
-ZW_ADD_CMD(FUNC_ID_ZW_REPLICATION_COMMAND_COMPLETE)
-{
-  ReplicationComplete();
-  set_state_and_notify(stateIdle);
-}
-#endif
-
-
-#if SUPPORT_ZW_REPLICATION_SEND_DATA
-uint8_t funcID_ComplHandler_ZW_ReplicationSendData;
-
-/*=====================   ComplHandler_ZW_ReplicationSendData   =============
-**    Completion handler for ZW_ReplicationSendData
-**
-**--------------------------------------------------------------------------*/
-static void /* RET  Nothing */
-ZCB_ComplHandler_ZW_ReplicationSendData(
-    uint8_t txStatus, __attribute__((unused)) TX_STATUS_TYPE* extendedTxStatus) /* IN   Transmit completion status */
-{
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_ReplicationSendData;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
-  Request(FUNC_ID_ZW_REPLICATION_SEND_DATA, compl_workbuf, 2);
-}
-
-static uint8_t ReplicationSendData(uint16_t nodeID, uint8_t dataLength, const uint8_t* pData, uint8_t txOptions, ZW_TX_Callback_t pCallBack)
-{
-  assert(dataLength <= BUF_SIZE_RX);
-  dataLength = MIN(dataLength, BUF_SIZE_RX);
-  SZwaveTransmitPackage FramePackage = {
-    .uTransmitParams.SendReplication.DestNodeId = nodeID,
-    .uTransmitParams.SendReplication.FrameConfig.TransmitOptions = txOptions,
-    .uTransmitParams.SendReplication.FrameConfig.Handle = pCallBack,
-    .eTransmitType = EZWAVETRANSMITTYPE_SENDREPLICATION,
-    .uTransmitParams.SendReplication.FrameConfig.iFrameLength = dataLength
-  };
-  memcpy(&FramePackage.uTransmitParams.SendReplication.FrameConfig.aFrame, pData, dataLength);
-
-  // Put the package on queue (and dont wait for it)
-  EQueueNotifyingStatus QueueStatus = QueueNotifyingSendToBack(ZAF_getZwTxQueue(), (uint8_t *)&FramePackage, 0);
-  return (EQUEUENOTIFYING_STATUS_SUCCESS == QueueStatus) ? true : false;
-}
-
-ZW_ADD_CMD(FUNC_ID_ZW_REPLICATION_SEND_DATA)
-{
-  /* nodeID | dataLength | pData[] | txOptions | funcID */
-  uint8_t dataLength;
-  uint8_t txOptions;
-  uint8_t offset = 0;
-  node_id_t nodeID;
-  nodeID = (node_id_t)GET_NODEID(&frame->payload[0], offset);
-  dataLength = frame->payload[offset + 1];
-  txOptions = frame->payload[offset + 2 + dataLength];
-  funcID_ComplHandler_ZW_ReplicationSendData = frame->payload[offset + 3 + dataLength];
-  const uint8_t retVal = ReplicationSendData(nodeID, dataLength, &frame->payload[offset + 2], txOptions,
-                                (funcID_ComplHandler_ZW_ReplicationSendData != 0) ? &ZCB_ComplHandler_ZW_ReplicationSendData : NULL );
-
-  DoRespond(retVal);
-}
-#endif
-
-
 #if SUPPORT_ZW_ASSIGN_RETURN_ROUTE
 uint8_t funcID_ComplHandler_ZW_AssignReturnRoute;
 
@@ -1744,8 +1773,8 @@ ZCB_ComplHandler_ZW_AssignReturnRoute(
     TX_STATUS_TYPE *txStatusReport) /* IN   Transmit completion status  */
 {
   uint8_t bIdx = 0;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = funcID_ComplHandler_ZW_AssignReturnRoute;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = bStatus;
+  compl_workbuf[bIdx++] = funcID_ComplHandler_ZW_AssignReturnRoute;
+  compl_workbuf[bIdx++] = bStatus;
   if (bTxStatusReportEnabled && txStatusReport) /* Check if detailed info is available from protocol */
   {
     memcpy(&compl_workbuf[bIdx], (uint8_t *)txStatusReport, sizeof(TX_STATUS_TYPE));
@@ -1798,8 +1827,8 @@ ZCB_ComplHandler_ZW_AssignPriorityReturnRoute(
     TX_STATUS_TYPE *txStatusReport)
 {
   uint8_t bIdx = 0;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = funcID_ComplHandler_ZW_AssignPriorityReturnRoute;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = bStatus;
+  compl_workbuf[bIdx++] = funcID_ComplHandler_ZW_AssignPriorityReturnRoute;
+  compl_workbuf[bIdx++] = bStatus;
   if (bTxStatusReportEnabled && txStatusReport) /* Check if detailed info is available from protocol */
   {
     memcpy(&compl_workbuf[bIdx], (uint8_t *)txStatusReport, sizeof(TX_STATUS_TYPE));
@@ -1857,8 +1886,8 @@ ZCB_ComplHandler_ZW_DeleteReturnRoute(
     TX_STATUS_TYPE *txStatusReport) /* IN   Transmit completion status  */
 {
   uint8_t bIdx = 0;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = funcID_ComplHandler_ZW_DeleteReturnRoute;
-  BYTE_IN_AR(compl_workbuf, bIdx++) = bStatus;
+  compl_workbuf[bIdx++] = funcID_ComplHandler_ZW_DeleteReturnRoute;
+  compl_workbuf[bIdx++] = bStatus;
   if (bTxStatusReportEnabled /* Do HOST want txStatusReport */
       && txStatusReport)     /* Check if detailed info is available from protocol */
   {
@@ -2007,8 +2036,8 @@ ZCB_ComplHandler_ZW_SendSUC_ID(
     uint8_t bStatus,
     __attribute__((unused)) TX_STATUS_TYPE *txStatusReport)
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SendSUC_ID;
-  BYTE_IN_AR(compl_workbuf, 1) = bStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SendSUC_ID;
+  compl_workbuf[1] = bStatus;
   Request(FUNC_ID_ZW_SEND_SUC_ID, compl_workbuf, 2);
 }
 
@@ -2054,8 +2083,8 @@ ZCB_ComplHandler_ZW_SetSUCNodeID(
     uint8_t txStatus, /*IN   Completion status*/
     __attribute__((unused)) TX_STATUS_TYPE *txStatusReport)
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SetSUCNodeID;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SetSUCNodeID;
+  compl_workbuf[1] = txStatus;
   Request(FUNC_ID_ZW_SET_SUC_NODE_ID, compl_workbuf, 2);
 }
 
@@ -2098,13 +2127,13 @@ ZW_ADD_CMD(FUNC_ID_ZW_GET_SUC_NODE_ID)
 
   if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
   {
-    BYTE_IN_AR(compl_workbuf, 0) = (uint8_t)(suc_node_id >> 8);      // MSB
-    BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)(suc_node_id & 0xFF);    // LSB
+    compl_workbuf[0] = (uint8_t)(suc_node_id >> 8);      // MSB
+    compl_workbuf[1] = (uint8_t)(suc_node_id & 0xFF);    // LSB
     cmdLength = 2;
   }
   else
   {
-    BYTE_IN_AR(compl_workbuf, 0) = (uint8_t)(suc_node_id & 0xFF);
+    compl_workbuf[0] = (uint8_t)(suc_node_id & 0xFF);
     cmdLength = 1;
   }
   DoRespond_workbuf(cmdLength);
@@ -2128,8 +2157,8 @@ ZCB_ComplHandler_ZW_RemoveFailedNodeID(
     return;
   }
 
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_RemoveFailedNodeID;
-  BYTE_IN_AR(compl_workbuf, 1) = bStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_RemoveFailedNodeID;
+  compl_workbuf[1] = bStatus;
   Request(FUNC_ID_ZW_REMOVE_FAILED_NODE_ID, compl_workbuf, 2);
 }
 
@@ -2212,8 +2241,8 @@ ZCB_ComplHandler_ZW_ReplaceFailedNode(
     return;
   }
 
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_ReplaceFailedNode;
-  BYTE_IN_AR(compl_workbuf, 1) = bStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_ReplaceFailedNode;
+  compl_workbuf[1] = bStatus;
   Request(FUNC_ID_ZW_REPLACE_FAILED_NODE, compl_workbuf, 2);
 }
 
@@ -2283,53 +2312,6 @@ ZW_ADD_CMD(FUNC_ID_GET_ROUTING_TABLE_LINE)
 }
 #endif
 
-
-#if SUPPORT_GET_TX_COUNTER
-ZW_ADD_CMD(FUNC_ID_GET_TX_COUNTER)
-{
-  /* */
-  /* Get the transmit counter */
-  /* Not usedin 700 series - Obsoleted */
-  DoRespond(0);
-}
-#endif
-
-
-#if SUPPORT_RESET_TX_COUNTER
-ZW_ADD_CMD(FUNC_ID_RESET_TX_COUNTER)
-{
-  /* */
-  /* Reset the transmit counter */
-  /* Not usedin 700 series - Obsoleted */
-  DoRespond(0);
-}
-#endif
-
-
-#if SUPPORT_STORE_HOMEID
-static void StoreHomeID(uin8_t *pHomeID, uint16_t nodeID)
-{
-  SZwaveCommandPackage cmdPackage = {
-      .eCommandType = EZWAVECOMMANDTYPE_STORE_HOMEID,
-      .uCommandParams.StoreHomeID.nodeID = nodeID,
-  };
-  memcpy(cmdPackage.uCommandParams.StoreHomeID.homeID, pHomeID, sizeof(cmdPackage.uCommandParams.StoreHomeID.homeID));
-  // Put the Command on queue (and dont wait for it, queue must be empty)
-  __attribute__((unused)) EQueueNotifyingStatus QueueStatus = QueueNotifyingSendToBack(ZAF_getZwCommandQueue(), (uint8_t *)&cmdPackage, 0);
-  assert(EQUEUENOTIFYING_STATUS_SUCCESS == QueueStatus);
-}
-
-ZW_ADD_CMD(FUNC_ID_STORE_HOMEID)
-{
-  /* homeID1 | homeID2 | homeID3 | homeID4 | nodeID */
-  /* Store homeID and Node ID. */
-  uint8_t offset = 0;
-  StoreHomeID(frame->payload, GET_NODEID(&frame->payload[4], offset));
-  set_state_and_notify(stateIdle);
-}
-#endif
-
-
 #if SUPPORT_LOCK_ROUTE_RESPONSE
 static void LockResponseRoute(uint8_t lockID)
 {
@@ -2384,14 +2366,14 @@ ZW_ADD_CMD(FUNC_ID_ZW_GET_PRIORITY_ROUTE)
   node_id_t nodeId = (node_id_t)GET_NODEID(&frame->payload[0], offset);
   if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
   {
-    BYTE_IN_AR(compl_workbuf, 0) = (uint8_t)(nodeId >> 8);     // MSB
-    BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)(nodeId & 0xFF);   // LSB
+    compl_workbuf[0] = (uint8_t)(nodeId >> 8);     // MSB
+    compl_workbuf[1] = (uint8_t)(nodeId & 0xFF);   // LSB
   }
   else
   {
-    BYTE_IN_AR(compl_workbuf, 0) = (uint8_t)(nodeId & 0xFF);   // Legacy 8 bit nodeIDs
+    compl_workbuf[0] = (uint8_t)(nodeId & 0xFF);   // Legacy 8 bit nodeIDs
   }
-  BYTE_IN_AR(compl_workbuf, offset + 1) = GetPriorityRoute(nodeId, &compl_workbuf[offset + 2]);
+  compl_workbuf[offset + 1] = GetPriorityRoute(nodeId, &compl_workbuf[offset + 2]);
   DoRespond_workbuf(offset + 7);
 }
 #endif
@@ -2435,22 +2417,22 @@ ZW_ADD_CMD(FUNC_ID_ZW_SET_PRIORITY_ROUTE)
   node_id_t nodeId = (node_id_t)GET_NODEID(&frame->payload[0], offset);
   if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
   {
-    BYTE_IN_AR(compl_workbuf, 0) = (uint8_t)(nodeId >> 8);     // MSB
-    BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)(nodeId & 0xFF);   // LSB
+    compl_workbuf[0] = (uint8_t)(nodeId >> 8);     // MSB
+    compl_workbuf[1] = (uint8_t)(nodeId & 0xFF);   // LSB
   }
   else
   {
-    BYTE_IN_AR(compl_workbuf, 0) = (uint8_t)(nodeId & 0xFF);   // Legacy 8 bit nodeIDs
+    compl_workbuf[0] = (uint8_t)(nodeId & 0xFF);   // Legacy 8 bit nodeIDs
   }
   if ((offset + 9) <= frame->len)
   {
     /* Set Priority Route Devkit 6.6x */
-    BYTE_IN_AR(compl_workbuf, offset + 1) = SetPriorityRoute(nodeId, &frame->payload[offset + 1]);
+    compl_workbuf[offset + 1] = SetPriorityRoute(nodeId, &frame->payload[offset + 1]);
   }
   else
   {
     /* Clear/Release Golden Route - Devkit 6.6x+ */
-    BYTE_IN_AR(compl_workbuf, offset + 1) = SetPriorityRoute(nodeId, NULL);
+    compl_workbuf[offset + 1] = SetPriorityRoute(nodeId, NULL);
   }
   DoRespond_workbuf(2);
 }
@@ -2607,8 +2589,8 @@ ZCB_ComplHandler_ZW_SendSlaveNodeInformation(
   uint8_t txStatus,                        /* IN   Transmit completion status  */
   __attribute__((unused)) TX_STATUS_TYPE *txStatusReport)
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SendSlaveNodeInformation;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SendSlaveNodeInformation;
+  compl_workbuf[1] = txStatus;
   Request(FUNC_ID_ZW_SEND_SLAVE_NODE_INFORMATION, compl_workbuf, 2);
 }
 
@@ -2685,10 +2667,10 @@ ZCB_ComplHandler_ZW_SetSlaveLearnMode(
     return;
   }
 
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SetSlaveLearnMode;
-  BYTE_IN_AR(compl_workbuf, 1) = bStatus;
-  BYTE_IN_AR(compl_workbuf, 2) = orgID;
-  BYTE_IN_AR(compl_workbuf, 3) = newID;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SetSlaveLearnMode;
+  compl_workbuf[1] = bStatus;
+  compl_workbuf[2] = orgID;
+  compl_workbuf[3] = newID;
   Request(FUNC_ID_ZW_SET_SLAVE_LEARN_MODE, compl_workbuf, 4);
 }
 
@@ -2733,8 +2715,8 @@ ZCB_ComplHandler_ZW_SendTestFrame(
   uint8_t txStatus,
   __attribute__((unused)) TX_STATUS_TYPE *txStatusReport)
 {
-  BYTE_IN_AR(compl_workbuf, 0) = funcID_ComplHandler_ZW_SendTestFrame;
-  BYTE_IN_AR(compl_workbuf, 1) = txStatus;
+  compl_workbuf[0] = funcID_ComplHandler_ZW_SendTestFrame;
+  compl_workbuf[1] = txStatus;
   Request(FUNC_ID_ZW_SEND_TEST_FRAME, compl_workbuf, 2);
 }
 
@@ -2911,7 +2893,7 @@ ZCB_ComplHandler_ZW_RequestNodeInfo(
     ApplicationNodeUpdate(UPDATE_STATE_NODE_INFO_REQ_FAILED, 0, NULL, 0);
   }
 }
-
+#if SUPPORT_ZW_REQUEST_NODE_INFO
 static uint8_t RequestNodeID(uint16_t nodeID)
 {
    // Create transmit frame package
@@ -2924,7 +2906,7 @@ static uint8_t RequestNodeID(uint16_t nodeID)
   EQueueNotifyingStatus QueueStatus = QueueNotifyingSendToBack(ZAF_getZwTxQueue(), (uint8_t *)&FramePackage, 0);
   return (EQUEUENOTIFYING_STATUS_SUCCESS == QueueStatus) ? true : false;
 }
-#if SUPPORT_ZW_REQUEST_NODE_INFO
+
 ZW_ADD_CMD(FUNC_ID_ZW_REQUEST_NODE_INFO)
 {
   /* HOST->ZW: nodeID */
@@ -2941,8 +2923,8 @@ ZW_ADD_CMD(FUNC_ID_SERIAL_API_SET_TIMEOUTS)
 {
   /* HOST->ZW: RX_ACK_timeout | RX_BYTE_timeout */
   /* ZW->HOST: RES | oldRX_ACK_timeout | oldRX_BYTE_timeout */
-  BYTE_IN_AR(compl_workbuf, 0) = (uint8_t)(comm_interface_get_ack_timeout_ms() / 10); /* Respond with the old timeout settings */
-  BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)(comm_interface_get_byte_timeout_ms() / 10);
+  compl_workbuf[0] = (uint8_t)(comm_interface_get_ack_timeout_ms() / 10); /* Respond with the old timeout settings */
+  compl_workbuf[1] = (uint8_t)(comm_interface_get_byte_timeout_ms() / 10);
   comm_interface_set_ack_timeout_ms(frame->payload[0] * 10);  /* Max time to wait for ACK after frame transmission in 10ms ticks */
   comm_interface_set_byte_timeout_ms(frame->payload[1] * 10); /* Max time to wait for next byte when collecting a new frame in 10ms ticks */
   /* Respond with the old timeout settings */
@@ -2973,32 +2955,6 @@ ZW_ADD_CMD(FUNC_ID_SERIAL_API_SETUP)
   DoRespond_workbuf(length);
 }
 #endif
-
-#if SUPPORT_SERIAL_API_READY
-ZW_ADD_CMD(FUNC_ID_SERIAL_API_READY)
-{
-  /* HOST->ZW: [serialLinkState] */
-  /* serialLinkState is OPTIONAL, if not present then the READY command, means "READY" */
-  if ((FRAME_LENGTH_MIN < frame->len) && (SERIAL_LINK_DETACHED == frame->payload[0]))
-  {
-    /* HOST want Serial link to be shutdown - SerialAPI will not transmit anything */
-    /* via serial link as long as HOST do not reestablish the Serial Link by */
-    /* transmitting a valid SerialAPI frame. */
-    serialLinkState = SERIAL_LINK_DETACHED;
-    /* Purge Callback queue */
-    PurgeCallbackQueue();
-    PurgeCommandQueue();
-  }
-  else
-  {
-    /* Missing serialLinkState parameter or Every other serialLinkState value means */
-    /* HOST Ready for Serial Communication */
-    serialLinkState = SERIAL_LINK_CONNECTED;
-  }
-  set_state_and_notify(stateIdle);
-}
-#endif
-
 
 #if SUPPORT_ZW_TYPE_LIBRARY
 ZW_ADD_CMD(FUNC_ID_ZW_TYPE_LIBRARY)
@@ -3070,7 +3026,7 @@ ZW_ADD_CMD(FUNC_ID_SERIAL_API_EXT)
       case 0:
       case 1:
       {
-        BYTE_IN_AR(compl_workbuf, 0) = 0;
+        compl_workbuf[0] = 0;
         DoRespond_workbuf(1);
       }
       break;
@@ -3125,13 +3081,13 @@ ZW_ADD_CMD(FUNC_ID_ZW_GET_RANDOM)
     noRndBytes = 2;
   }
   // Prepare failed return
-  BYTE_IN_AR(compl_workbuf, 0) = false;
-  BYTE_IN_AR(compl_workbuf, 1) = 0;
+  compl_workbuf[0] = false;
+  compl_workbuf[1] = 0;
   uint8_t rndBytes = GetRandom(noRndBytes, &compl_workbuf[2]);
   if (rndBytes)
   {
-    BYTE_IN_AR(compl_workbuf, 0) = true;
-    BYTE_IN_AR(compl_workbuf, 1) = rndBytes;
+    compl_workbuf[0] = true;
+    compl_workbuf[1] = rndBytes;
   }
   rndBytes += 2;
   DoRespond_workbuf(rndBytes);
@@ -3217,6 +3173,101 @@ ZW_ADD_CMD(FUNC_ID_ZW_NETWORK_MANAGEMENT_SET_MAX_INCLUSION_REQUEST_INTERVALS)
   /* HOST->ZW: bChannel | bThreshold */
   /* ZW->HOST: RES | true */
   const uint8_t retVal = SetMaxInclReqIntervals(frame->payload[0]);
+  DoRespond(retVal);
+}
+#endif
+
+#if SUPPORT_ZW_TRANSFER_PROTOCOL_CC
+static uint8_t TransferProtocolCC(node_id_t nodeId, security_key_t decryptionKey, uint8_t payloadLength, const uint8_t * const payload)
+{
+  SZwaveCommandPackage CommandPackage = {
+    .eCommandType = EZWAVECOMMANDTYPE_TRANSFER_PROTOCOL_CC,
+    .uCommandParams.TransferProtocolCC.srcNodeId = nodeId,
+    .uCommandParams.TransferProtocolCC.decryptionKey = decryptionKey,
+    .uCommandParams.TransferProtocolCC.payloadLength = payloadLength,
+    .uCommandParams.TransferProtocolCC.payload = { 0 }
+  };
+
+  if (payloadLength > ZW_MAX_PAYLOAD_SIZE)
+  {
+    payloadLength = ZW_MAX_PAYLOAD_SIZE;
+  }
+  memcpy(&CommandPackage.uCommandParams.TransferProtocolCC.payload[0], payload, payloadLength);
+  // Put the package on queue (and dont wait for it)
+  EQueueNotifyingStatus QueueStatus = QueueNotifyingSendToBack(ZAF_getZwCommandQueue(), (uint8_t *)&CommandPackage, 0);
+  return (EQUEUENOTIFYING_STATUS_SUCCESS == QueueStatus) ? true : false;
+}
+
+ZW_ADD_CMD(FUNC_ID_ZW_TRANSFER_PROTOCOL_CC)
+{
+  /* HOST->ZW: nodeID | decryptionKey | payloadLength | payload */
+  /* ZW->HOST: RetVal */
+  uint8_t  offset = 0;
+  node_id_t nodeId = (node_id_t)GET_NODEID(&frame->payload[0], offset);
+  security_key_t decryptionKey = frame->payload[offset + 1];
+  uint8_t payloadLength = frame->payload[offset + 2];
+  const uint8_t * const payload = frame->payload + offset + 3;
+
+  // Create transfer protocol command class frame package
+  const uint8_t retVal = TransferProtocolCC(nodeId, decryptionKey, payloadLength, payload);
+  DoRespond(retVal);
+}
+#endif
+
+#if SUPPORT_ENABLE_NODE_NLS
+static uint8_t EnableNodeNLS(node_id_t nodeId)
+{
+  SZwaveCommandPackage FramePackage = {
+    .eCommandType = EZWAVECOMMANDTYPE_ENABLE_NODE_NLS,
+    .uCommandParams.EnableNodeNls.nodeID = nodeId
+  };
+  // Put the package on queue (and dont wait for it)
+  __attribute__((unused)) EQueueNotifyingStatus QueueStatus = QueueNotifyingSendToBack(ZAF_getZwCommandQueue(), (uint8_t *)&FramePackage, 0);
+  assert(EQUEUENOTIFYING_STATUS_SUCCESS == QueueStatus);
+  SZwaveCommandStatusPackage cmdStatus = { 0 };
+  if (GetCommandResponse(&cmdStatus, EZWAVECOMMANDSTATUS_ENABLE_NODE_NLS))
+  {
+    return cmdStatus.Content.EnableNodeNlsStatus.status;
+  }
+  assert(0);
+  return 0;
+}
+
+ZW_ADD_CMD(FUNC_ID_ZW_ENABLE_NODE_NLS)
+{
+  /* HOST->ZW: nodeID */
+  volatile uint8_t offset = 0;
+  node_id_t nodeId = (node_id_t)GET_NODEID(&frame->payload[0], offset);
+  const uint8_t retVal = EnableNodeNLS(nodeId);
+  DoRespond(retVal);
+}
+#endif
+
+#if SUPPORT_GET_NODE_NLS_STATE
+static uint8_t GetNodeNLSState(node_id_t nodeId)
+{
+  SZwaveCommandPackage FramePackage = {
+    .eCommandType = EZWAVECOMMANDTYPE_GET_NODE_NLS_STATE,
+    .uCommandParams.GetNodeNlsState.nodeID = nodeId
+  };
+  // Put the package on queue (and dont wait for it)
+  __attribute__((unused)) EQueueNotifyingStatus QueueStatus = QueueNotifyingSendToBack(ZAF_getZwCommandQueue(), (uint8_t *)&FramePackage, 0);
+  assert(EQUEUENOTIFYING_STATUS_SUCCESS == QueueStatus);
+  SZwaveCommandStatusPackage cmdStatus = { 0 };
+  if (GetCommandResponse(&cmdStatus, EZWAVECOMMANDSTATUS_GET_NODE_NLS_STATE))
+  {
+    return cmdStatus.Content.GetNodeNlsStateStatus.nlsState;
+  }
+  assert(0);
+  return 0;
+}
+
+ZW_ADD_CMD(FUNC_ID_ZW_GET_NODE_NLS_STATE)
+{
+  /* HOST->ZW: nodeID */
+  volatile uint8_t offset = 0;
+  node_id_t nodeId = (node_id_t)GET_NODEID(&frame->payload[0], offset);
+  const uint8_t retVal = GetNodeNLSState(nodeId);
   DoRespond(retVal);
 }
 #endif

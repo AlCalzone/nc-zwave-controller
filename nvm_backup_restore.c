@@ -9,7 +9,6 @@
 #include <utils.h>
 #include <ZW_controller_api.h>
 #include <serialapi_file.h>
-#include <zpal_watchdog.h>
 #include <zpal_nvm.h>
 
 //#define DEBUGPRINT
@@ -108,7 +107,7 @@ static void NvmBackupAddrSet(uint8_t* pAddr, const nvm_backup_restore_addr_size_
 
 /**
  * Must be called to open the backup restore feature
- * The function will shut down the RF, Z-Wave timer system , close the NVM system, and disable the watchdog timer
+ * The function will shut down the RF, Z-Wave timer system , close the NVM system
  *
  * @return true if backup/resotre is opened else false
  */
@@ -119,7 +118,6 @@ static bool NvmBackupOpen(void)
        .uCommandParams.NvmBackupRestore.offset = 0,
        .uCommandParams.NvmBackupRestore.length = 0,
   };
-  zpal_enable_watchdog(false);
   uint8_t bReturn = QueueProtocolCommand((uint8_t*)&nvmOpen);
   if (EQUEUENOTIFYING_STATUS_SUCCESS == bReturn)
   {

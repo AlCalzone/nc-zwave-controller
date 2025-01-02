@@ -47,9 +47,6 @@
 /* Max number of nodes in a multi cast (group) */
 #define MAX_GROUP_NODES 64
 
-/* Macro for accessing the byte in byte_array at the index indx */
-#define BYTE_IN_AR(byte_array, indx) (*(byte_array + indx))
-
 /* Macro for getting HIGH uint8_t in wVar uint16_t variable */
 #define BYTE_GET_HIGH_BYTE_IN_WORD(wVar) *((uint8_t*)&wVar)
 
@@ -111,7 +108,7 @@ typedef enum _E_SERIALAPI_SET_LEARN_MODE_
 
 } E_SERIALAPI_SET_LEARN_MODE;
 
-#ifdef ZW_SLAVE_ROUTING
+#ifdef ZW_SLAVE
 /* SerialAPI only used state - used when ZW_RequestNodeInfo transmit fails */
 /* It is then assumed that the destination node did not receive the request. */
 #define UPDATE_STATE_NODE_INFO_REQ_FAILED   0x81
@@ -158,9 +155,6 @@ typedef enum
 
 #define SUPPORT_SERIAL_API_GET_CAPABILITIES             1
 #define SUPPORT_SERIAL_API_SOFT_RESET                   1
-
-#define SUPPORT_SERIAL_API_POWER_MANAGEMENT             0
-#define SUPPORT_SERIAL_API_READY                        0
 
 #define SUPPORT_SERIAL_API_EXT                          1
 #ifdef ZW_SECURITY_PROTOCOL
@@ -210,23 +204,6 @@ typedef enum
 /* ZW_EnableSUC() no longer exists in the library */
 
 /* */
-#define SUPPORT_SERIAL_API_GET_APPL_HOST_MEMORY_OFFSET  0
-
-#if SUPPORT_SERIAL_API_READY
-enum
-{
-  /* SERIAL_LINK_IDLE = Ready for incomming Serial communication, but */
-  /* do not transmit anything via the serial link even if application */
-  /* frames is received on the RF, which normally should be transmitted */
-  /* to the HOST. */
-  SERIAL_LINK_DETACHED = 0,
-  /* SERIAL_LINK_CONNECTED = There exists a HOST so transmit on serial */
-  /* link if needed. */
-  SERIAL_LINK_CONNECTED = 1
-};
-
-extern uint8_t serialLinkState;
-#endif /* SUPPORT_SERIAL_API_READY */
 
 extern void DoRespond_workbuf(
   uint8_t cnt);
@@ -265,32 +242,6 @@ extern void PopCommandQueue(void);
 extern uint8_t GetCallbackCnt(void);
 
 extern void ZW_GetMfgTokenDataCountryFreq(void *data);
-
-#if SUPPORT_SERIAL_API_POWER_MANAGEMENT
-extern void
-ZCB_PowerManagementWakeUpOnExternalActive(void);
-
-extern void
-ZCB_PowerManagementWakeUpOnTimerHandler(void);
-
-extern void
-ZCB_powerManagementPoweredUpPinActive(void);
-
-extern void
-PowerManagementSetPowerDown(void);
-
-extern void
-PowerManagementSetPowerUp(void);
-
-extern void
-PowerManagementCheck(void);
-
-extern void
-PurgeCallbackQueue(void);
-
-extern void
-PurgeCommandQueue(void);
-#endif /* SUPPORT_SERIAL_API_POWER_MANAGEMENT */
 
 // Prioritized events that can wakeup protocol thread.
 typedef enum EApplicationEvent

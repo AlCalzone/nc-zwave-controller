@@ -13,12 +13,14 @@
 #include "btl_interface.h"
 #include "sl_sleeptimer.h"
 #include "sl_mpu.h"
+#include "sl_gpio.h"
 #include "gpiointerrupt.h"
 #include "sl_mbedtls.h"
-#include "nvm3_default.h"
 #include "ZW_basis_api.h"
 #include "psa/crypto.h"
+#include "sl_se_manager.h"
 #include "cmsis_os2.h"
+#include "nvm3_default.h"
 #include "sl_power_manager.h"
 
 void sl_platform_init(void)
@@ -32,9 +34,9 @@ void sl_platform_init(void)
   sl_device_init_clocks();
   sl_memory_init();
   bootloader_init();
-  nvm3_initDefault();
   osKernelInitialize();
   sl_zwave_platform_startup();
+  nvm3_initDefault();
   sl_power_manager_init();
 }
 
@@ -45,6 +47,7 @@ void sl_kernel_start(void)
 
 void sl_driver_init(void)
 {
+  sl_gpio_init();
   GPIOINT_Init();
 }
 
@@ -55,6 +58,7 @@ void sl_service_init(void)
   sl_mpu_disable_execute_from_ram();
   sl_mbedtls_init();
   psa_crypto_init();
+  sl_se_init();
 }
 
 void sl_stack_init(void)

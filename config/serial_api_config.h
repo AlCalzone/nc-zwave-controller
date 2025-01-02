@@ -20,14 +20,6 @@
 #define SERIAL_API_PERIPHERAL_NO                 0
 #endif
 
-// USART0 TX on PA08
-#ifndef SERIAL_API_TX_PORT                      
-#define SERIAL_API_TX_PORT                       gpioPortA
-#endif
-#ifndef SERIAL_API_TX_PIN                       
-#define SERIAL_API_TX_PIN                        8
-#endif
-
 // [USART_SERIAL_API]$
 
 // <<< sl:end pin_tool >>>
