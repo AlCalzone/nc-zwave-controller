@@ -34,6 +34,7 @@
 #include <ZAF_nvm_app.h>
 #include <ZAF_nvm.h>
 #include "zw_version_config.h"
+#include "btl_interface.h"
 
 #define APPLICATIONSIZE (4*1024)
 
@@ -131,7 +132,7 @@ SerialAPI_FileSystemMigrationManagement(void)
 
   if(expectedFilesysVersion < presentFilesysVersion)
   {
-    //System downgrade. Should not be allowed.
+    // FIXME: Return to bootloader instead
     assert(false);
   }
   else if(expectedFilesysVersion > presentFilesysVersion)  // File system upgrade needed. Initiating file system migration...
@@ -257,13 +258,17 @@ uint8_t SerialApiFileInit(void)
   bool initStatus = ZAF_nvm_app_init();
   if (!initStatus)
   {
-    assert(false); //Assert has been kept for debugging , can be removed from production code. This error can only be caused by some internal flash HW failure
+    // NVM cannot be initialized. Something is really wrong - return to bootloader
+    bootloader_rebootAndInstall();
+    return false;
   }
 
   initStatus = ZAF_nvm_init();
   if (!initStatus)
   {
-    assert(false); //Assert has been kept for debugging , can be removed from production code. This error can only be caused by some internal flash HW failure
+    // NVM cannot be initialized. Something is really wrong - return to bootloader
+    bootloader_rebootAndInstall();
+    return false;
   }
 
   uint32_t appVersion = 0;
@@ -280,21 +285,18 @@ uint8_t SerialApiFileInit(void)
     status = SerialAPI_GetZWVersion(&appVersion);
   }
 
-  if (status)
-  {
-    if (zpal_get_app_version() != appVersion)
-    {
-      /**
-       * In case the file-system is older than supported by this version of the FW, then upgrade.
-       */
-      SerialAPI_FileSystemMigrationManagement();
-    }
-  }
-  else
-  {
-	  //There are no files on first boot up. Write default files.
+  if (!status) {
+    //There are no files on first boot up. Write default files.
     WriteDefault();
     return false;
+  }
+
+  if (zpal_get_app_version() != appVersion)
+  {
+    /**
+     * In case the file-system is older than supported by this version of the FW, then upgrade.
+     */
+    SerialAPI_FileSystemMigrationManagement();
   }
 
   return true;
