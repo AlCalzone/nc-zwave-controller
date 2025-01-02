@@ -16,12 +16,10 @@
 #define SUPPORT_NVM_EXT_READ_LONG_BYTE                  1 /* NVM_ext_read_long_byte */
 #define SUPPORT_NVM_EXT_WRITE_LONG_BYTE                 0 /* NVM_ext_write_long_byte */
 #define SUPPORT_NVM_EXT_WRITE_LONG_BUFFER               0 /* NVM_ext_write_long_buffer*/
-#define SUPPORT_STORE_HOMEID                            0 /* ZW_StoreHomeID */
 #define SUPPORT_ZW_AES_ECB                              0 /* ZW_AES_ECB */
 #define SUPPORT_ZW_EXPLORE_REQUEST_INCLUSION            1 /* ZW_ExploreRequestInclusion */
 #define SUPPORT_ZW_EXPLORE_REQUEST_EXCLUSION            1 /* ZW_ExploreRequestExclusion */
 #define SUPPORT_ZW_GET_NODE_PROTOCOL_INFO               1 /* ZW_GetNodeProtocolInfo */
-#define SUPPORT_ZW_GET_PROTOCOL_STATUS                  1 /* ZW_GetProtocolStatus */
 #define SUPPORT_ZW_GET_PROTOCOL_VERSION                 1 /* ZW_GetProtocolVersion */
 #define SUPPORT_ZW_GET_RANDOM                           1 /* ZW_GetRandomWord */
 #define SUPPORT_ZW_GET_SUC_NODE_ID                      1 /* ZW_GetSUCNodeID */
@@ -33,7 +31,6 @@
 #define SUPPORT_ZW_SEND_NODE_INFORMATION                1 /* ZW_SendNodeInformation */
 #define SUPPORT_ZW_SET_DEFAULT                          1 /* ZW_SetDefault */
 #define SUPPORT_ZW_SET_LEARN_MODE                       1 /* ZW_SetLearnMode */
-#define SUPPORT_ZW_SET_PROMISCUOUS_MODE                 0 /* ZW_SetPromiscuousMode */
 #define SUPPORT_ZW_SET_RF_RECEIVE_MODE                  1 /* ZW_SetRFReceiveMode */
 #define SUPPORT_ZW_SET_SUC_NODE_ID                      1 /* ZW_SetSUCNodeID */
 #define SUPPORT_ZW_TYPE_LIBRARY                         1 /* ZW_Type_Library */
@@ -62,8 +59,3 @@
 
 #define SUPPORT_SERIAL_API_SOFT_RESET                   1
 #define SUPPORT_SERIAL_API_SETUP                        1
-
-#define SUPPORT_ZW_APPLICATION_UPDATE                   1
-
-#define SUPPORT_GET_TX_COUNTER                          0
-#define SUPPORT_RESET_TX_COUNTER                        0

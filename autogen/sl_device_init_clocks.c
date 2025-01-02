@@ -49,6 +49,7 @@ sl_status_t sl_device_init_clocks(void)
   CMU_CLOCK_SELECT_SET(RTCC, LFRCO);
 #endif
 #if defined(SYSRTC_PRESENT)
+  CMU_ClockEnable(cmuClock_SYSRTC, true);
   CMU_CLOCK_SELECT_SET(SYSRTC, LFRCO);
 #endif
   CMU_CLOCK_SELECT_SET(WDOG0, LFRCO);

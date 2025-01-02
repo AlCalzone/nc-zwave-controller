@@ -33,6 +33,7 @@
 #define BYTE_OFFSET(x) (1 << ((x - 1) % 8))
 /** Add the SERIAL_API_SETUP command to the bitmask array */
 #define BITMASK_ADD_CMD(bitmask, cmd) (bitmask[BYTE_INDEX(cmd)] |= BYTE_OFFSET(cmd))
+#define CONTROLLER_IS_SUC                       0x10 /* - If this bit is set then this controller is a SUC */
 
 #ifndef MAX
 /** Return the larger of two values.
@@ -45,26 +46,52 @@
 #define MAX( x, y ) ( ( x ) > ( y ) ? ( x ) : ( y ) )
 #endif // MAX
 
+static const serial_api_setup_cmd_get_region_info_answer_t regions_info[] = {
+  {.region=REGION_EU,    .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+  {.region=REGION_US,    .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+  {.region=REGION_ANZ,   .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+  {.region=REGION_HK,    .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+  {.region=REGION_IN,    .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+  {.region=REGION_IL,    .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+  {.region=REGION_RU,    .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+  {.region=REGION_CN,    .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+  {.region=REGION_US_LR, .zw_classic=1, .zw_lr=1, .reserved=0, .included_region=REGION_US},
+  {.region=REGION_EU_LR, .zw_classic=1, .zw_lr=1, .reserved=0, .included_region=REGION_EU},
+  {.region=REGION_JP,    .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+  {.region=REGION_KR,    .zw_classic=1, .zw_lr=0, .reserved=0, .included_region=REGION_UNDEFINED},
+};
+#define REGIONS_INFO_COUNT   (sizeof(regions_info)/sizeof(regions_info[0]))
+//default answer in case the requested region is not found in the regions_info table.
+static const serial_api_setup_cmd_get_region_info_answer_t unknown_region_info =
+{
+  .region = REGION_UNDEFINED,
+  .zw_classic = 0,
+  .zw_lr = 0,
+  .reserved = 0,
+  .included_region = 0
+};
+#define REGION_INFO_SIZE  (sizeof(serial_api_setup_cmd_get_region_info_answer_t))
+
 void func_id_serial_api_get_init_data(__attribute__((unused)) uint8_t inputLength,
                                       __attribute__((unused)) const uint8_t *pInputBuffer,
                                       uint8_t *pOutputBuffer,
                                       uint8_t *pOutputLength)
 {
   *pOutputLength = 5;
-  BYTE_IN_AR(pOutputBuffer, 0) = SERIAL_API_VER;
-  BYTE_IN_AR(pOutputBuffer, 1) = 0; /* Flag byte - default: controller api, no timer support, no primary, no SUC */
+  pOutputBuffer[0] = SERIAL_API_VER;
+  pOutputBuffer[1] = 0; /* Flag byte - default: controller api, no timer support, no primary, no SUC */
 #ifdef ZW_CONTROLLER
   if (!IsPrimaryController())
   {
-    BYTE_IN_AR(pOutputBuffer, 1) |= GET_INIT_DATA_FLAG_SECONDARY_CTRL; /* Set Primary/secondary bit */
+    pOutputBuffer[1] |= GET_INIT_DATA_FLAG_SECONDARY_CTRL; /* Set Primary/secondary bit */
   }
   if (GetControllerCapabilities() & CONTROLLER_IS_SUC) /* if (ZW_IS_SUC_ACTIVE()) */
   {
-    BYTE_IN_AR(pOutputBuffer, 1) |= GET_INIT_DATA_FLAG_IS_SUC; /* Set SUC bit if active */
+    pOutputBuffer[1] |= GET_INIT_DATA_FLAG_IS_SUC; /* Set SUC bit if active */
   }
 
   /* compl_workbuf[1] is already set to controller api*/
-  BYTE_IN_AR(pOutputBuffer, 2) = ZW_MAX_NODES / 8; /* node bitmask length */
+  pOutputBuffer[2] = ZW_MAX_NODES / 8; /* node bitmask length */
 
   /* Clear the buffer */
   memset(pOutputBuffer + 3, 0, ZW_MAX_NODES / 8);
@@ -73,15 +100,15 @@ void func_id_serial_api_get_init_data(__attribute__((unused)) uint8_t inputLengt
 
   Get_included_nodes(pOutputBuffer + 3);
 
-  BYTE_IN_AR(pOutputBuffer, 3 + (ZW_MAX_NODES / 8)) = zpal_get_chip_type();
-  BYTE_IN_AR(pOutputBuffer, 4 + (ZW_MAX_NODES / 8)) = zpal_get_chip_revision();
+  pOutputBuffer[3 + (ZW_MAX_NODES / 8)] = zpal_get_chip_type();
+  pOutputBuffer[4 + (ZW_MAX_NODES / 8)] = zpal_get_chip_revision();
   *pOutputLength += (ZW_MAX_NODES / 8);
   assert(*pOutputLength <= 34);  // Elsewhere, like in zwapi_init.c, the pOutputBuffer is hardcoded to 34 bytes in lenght.
 #else
-  BYTE_IN_AR(pOutputBuffer, 1) |= GET_INIT_DATA_FLAG_SLAVE_API; /* Flag byte */
-  BYTE_IN_AR(pOutputBuffer, 2) = 0;                             /* node bitmask length */
-  BYTE_IN_AR(pOutputBuffer, 3) = zpal_get_chip_type();
-  BYTE_IN_AR(pOutputBuffer, 4) = zpal_get_chip_revision();
+  pOutputBuffer[1] |= GET_INIT_DATA_FLAG_SLAVE_API; /* Flag byte */
+  pOutputBuffer[2] = 0;                             /* node bitmask length */
+  pOutputBuffer[3] = zpal_get_chip_type();
+  pOutputBuffer[4] = zpal_get_chip_revision();
 #endif
 }
 
@@ -103,18 +130,18 @@ void func_id_serial_api_get_LR_nodes(__attribute__((unused)) uint8_t inputLength
 
   uint8_t bitmaskOffset = pInputBuffer[0];
   *pOutputLength = 3 + MAX_LR_NODEMASK_LENGTH;
-  BYTE_IN_AR(pOutputBuffer, 0) = 0; // MORE_NODES - No more nodes for now.
+  pOutputBuffer[0] = 0; // MORE_NODES - No more nodes for now.
   // Allowed values for bitmaskOffset are 0, 1, 2, 3
   if (bitmaskOffset > 3)
   {
     bitmaskOffset = 3;
   }
-  BYTE_IN_AR(pOutputBuffer, 1) = bitmaskOffset;
+  pOutputBuffer[1] = bitmaskOffset;
 
   // Clean output buffer first
   memset(pOutputBuffer + 3, 0, MAX_LR_NODEMASK_LENGTH);
 
-  BYTE_IN_AR(pOutputBuffer, 2) = MAX_LR_NODEMASK_LENGTH; // BITMASK_LEN hardcoded
+  pOutputBuffer[2] = MAX_LR_NODEMASK_LENGTH; // BITMASK_LEN hardcoded
   if (bitmaskOffset < 1)
   {
     Get_included_lr_nodes(pOutputBuffer + 3);
@@ -161,12 +188,12 @@ void func_id_serial_api_setup(uint8_t inputLength,
   if (1 > inputLength)
   {
     /* Command length must be at least 1 byte. Return with negative response in the out buffer */
-    BYTE_IN_AR(pOutputBuffer, i++) = cmdRes;
+    pOutputBuffer[i++] = cmdRes;
     *pOutputLength = i;
     return;
   }
 
-  BYTE_IN_AR(pOutputBuffer, i++) = pInputBuffer[0];   /* Set output command ID equal input command ID */
+  pOutputBuffer[i++] = pInputBuffer[0];   /* Set output command ID equal input command ID */
   switch (pInputBuffer[0])
   {
 
@@ -179,7 +206,7 @@ void func_id_serial_api_setup(uint8_t inputLength,
      *               SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE + SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET) | */
     /*               supportedBitmask */
 
-    BYTE_IN_AR(pOutputBuffer, i++) = SERIAL_API_SETUP_CMD_TX_STATUS_REPORT | SERIAL_API_SETUP_CMD_RF_REGION_GET |
+    pOutputBuffer[i++] = SERIAL_API_SETUP_CMD_TX_STATUS_REPORT | SERIAL_API_SETUP_CMD_RF_REGION_GET |
                                      SERIAL_API_SETUP_CMD_RF_REGION_SET | SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET |
                                      SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET | SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE |
                                      SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET | SERIAL_API_SETUP_CMD_SUPPORTED;
@@ -203,12 +230,14 @@ void func_id_serial_api_setup(uint8_t inputLength,
     BITMASK_ADD_CMD(supportedBitmask, SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE);   // (17)
     BITMASK_ADD_CMD(supportedBitmask, SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT);     // (18)
     BITMASK_ADD_CMD(supportedBitmask, SERIAL_API_SETUP_CMD_TX_POWERLEVEL_GET_16_BIT);     // (19)
+    BITMASK_ADD_CMD(supportedBitmask, SERIAL_API_SETUP_CMD_GET_SUPPORTED_REGION);         // (21)
+    BITMASK_ADD_CMD(supportedBitmask, SERIAL_API_SETUP_CMD_GET_REGION_INFO);              // (22)
 
     /* Currently supported command with the highest value is SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET.
      No commands after it. */
     for (int j = 0; j <= SERIAL_API_SETUP_CMD_NODEID_BASETYPE_SET/8; j++)
     {
-      BYTE_IN_AR(pOutputBuffer, i++) = supportedBitmask[j];
+      pOutputBuffer[i++] = supportedBitmask[j];
     }
     break;
 
@@ -222,7 +251,7 @@ void func_id_serial_api_setup(uint8_t inputLength,
       /* Operation successful */
       cmdRes = true;
     }
-    BYTE_IN_AR(pOutputBuffer, i++) = cmdRes;
+    pOutputBuffer[i++] = cmdRes;
     break;
 
   /* Report RF region configuration */
@@ -234,7 +263,7 @@ void func_id_serial_api_setup(uint8_t inputLength,
       /* Error reading value from flash. (Should not happen). Return undefined value. */
       rfRegion = REGION_UNDEFINED;
     }
-    BYTE_IN_AR(pOutputBuffer, i++) = rfRegion;
+    pOutputBuffer[i++] = rfRegion;
     break;
 
   /* Set RF region configuration */
@@ -251,8 +280,51 @@ void func_id_serial_api_setup(uint8_t inputLength,
         cmdRes = SaveApplicationRfRegion(rfRegion);
       }
     }
-    BYTE_IN_AR(pOutputBuffer, i++) = cmdRes;
+    pOutputBuffer[i++] = cmdRes;
     break;
+
+  case SERIAL_API_SETUP_CMD_GET_SUPPORTED_REGION:
+  {
+    uint8_t supported_region_count = 0;
+    uint8_t region_count_index = i;
+    i++;  //skip suported region count, move to first region value;
+    for (rfRegion = REGION_2CH_FIRST; rfRegion < REGION_2CH_END; rfRegion++) {
+      if (true == isRfRegionValid(rfRegion)) {
+        supported_region_count++;
+        pOutputBuffer[i] = (uint8_t) rfRegion;
+        i++;
+      }
+    }
+    for (rfRegion = REGION_3CH_FIRST; rfRegion < REGION_3CH_END; rfRegion++) {
+      if (true == isRfRegionValid(rfRegion)) {
+        supported_region_count++;
+        pOutputBuffer[i] = (uint8_t) rfRegion;
+        i++;
+      }
+    }
+    pOutputBuffer[region_count_index] = supported_region_count;
+    break;
+  }
+
+  case SERIAL_API_SETUP_CMD_GET_REGION_INFO:
+  {
+    uint8_t info_idx;
+    //search for the requested region in the regions_info table.
+    for (info_idx = 0; info_idx < REGIONS_INFO_COUNT; info_idx++) {
+      if (regions_info[info_idx].region == pInputBuffer[SAPI_SETUP_GET_REGION_INFO_RX_IDX_REGION]) {
+        break;
+      }
+    }
+    // Copy the answer in the output buffer.
+    if (info_idx < REGIONS_INFO_COUNT) {
+      memcpy(&(pOutputBuffer[i]), &(regions_info[info_idx]), REGION_INFO_SIZE);
+    } else {
+      //region not found, answer the unknown region info.
+      memcpy(&(pOutputBuffer[i]), &unknown_region_info, REGION_INFO_SIZE);
+    }
+    i += REGION_INFO_SIZE;
+    break;
+  }
 
   case SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET:
   {
@@ -275,7 +347,7 @@ void func_id_serial_api_setup(uint8_t inputLength,
        */
       cmdRes = SaveApplicationTxPowerlevel(iTxPower, iAdjust);
     }
-    BYTE_IN_AR(pOutputBuffer, i++) = cmdRes;  // true if success
+    pOutputBuffer[i++] = cmdRes;  // true if success
     break;
   }
 
@@ -304,8 +376,8 @@ void func_id_serial_api_setup(uint8_t inputLength,
       iPower0dbmMeasured = INT8_MIN;
     }
 
-    BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)iPowerLevel;
-    BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)iPower0dbmMeasured;
+    pOutputBuffer[i++] = (uint8_t)iPowerLevel;
+    pOutputBuffer[i++] = (uint8_t)iPower0dbmMeasured;
     break;
 
   case SERIAL_API_SETUP_CMD_TX_POWERLEVEL_SET_16_BIT:
@@ -336,7 +408,7 @@ void func_id_serial_api_setup(uint8_t inputLength,
         cmdRes = SaveApplicationTxPowerlevel(iTxPower, iAdjust);
       }
     }
-    BYTE_IN_AR(pOutputBuffer, i++) = cmdRes;  // true if success
+    pOutputBuffer[i++] = cmdRes;  // true if success
     break;
   }
 
@@ -346,18 +418,18 @@ void func_id_serial_api_setup(uint8_t inputLength,
      *  ZW->HOST: SERIAL_API_SETUP_CMD_TX_POWER_GET_2 | NormalTxPowerLevel (16bit) | Measured0dBmPower (16bit)
      */
     ReadApplicationTxPowerlevel(&iPowerLevel, &iPower0dbmMeasured);
-    BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)((iPowerLevel >> 8) & 0xFF);  // Big-endian
-    BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)(iPowerLevel & 0xFF);
-    BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)((iPower0dbmMeasured >> 8) & 0xFF);
-    BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)(iPower0dbmMeasured & 0xFF);
+    pOutputBuffer[i++] = (uint8_t)((iPowerLevel >> 8) & 0xFF);  // Big-endian
+    pOutputBuffer[i++] = (uint8_t)(iPowerLevel & 0xFF);
+    pOutputBuffer[i++] = (uint8_t)((iPower0dbmMeasured >> 8) & 0xFF);
+    pOutputBuffer[i++] = (uint8_t)(iPower0dbmMeasured & 0xFF);
     break;
 
   case SERIAL_API_SETUP_CMD_TX_GET_MAX_PAYLOAD_SIZE:
-    BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)ZAF_getAppHandle()->pNetworkInfo->MaxPayloadSize;
+    pOutputBuffer[i++] = (uint8_t)ZAF_getAppHandle()->pNetworkInfo->MaxPayloadSize;
     break;
 
   case SERIAL_API_SETUP_CMD_TX_GET_MAX_LR_PAYLOAD_SIZE:
-    BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)ZAF_getAppHandle()->pLongRangeInfo->MaxLongRangePayloadSize;
+    pOutputBuffer[i++] = (uint8_t)ZAF_getAppHandle()->pLongRangeInfo->MaxLongRangePayloadSize;
     break;
 
   /* Set the Node ID base type */
@@ -374,7 +446,7 @@ void func_id_serial_api_setup(uint8_t inputLength,
         SaveApplicationNodeIdBaseType(nodeIdBaseType);
         cmdRes = true;
     }
-    BYTE_IN_AR(pOutputBuffer, i++) = cmdRes;
+    pOutputBuffer[i++] = cmdRes;
     break;
   case SERIAL_API_SETUP_CMD_MAX_LR_TX_PWR_SET:
   {
@@ -400,7 +472,7 @@ void func_id_serial_api_setup(uint8_t inputLength,
         cmdRes = SaveApplicationMaxLRTxPwr(iTxPower);
       }
     }
-    BYTE_IN_AR(pOutputBuffer, i++) = cmdRes;  // true if success
+    pOutputBuffer[i++] = cmdRes;  // true if success
     break;
   }
 
@@ -412,8 +484,8 @@ void func_id_serial_api_setup(uint8_t inputLength,
     {
       int16_t readout = 0;
       ReadApplicationMaxLRTxPwr(&readout);
-      BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)((readout >> 8) & 0xFF);
-      BYTE_IN_AR(pOutputBuffer, i++) = (uint8_t)(readout & 0xFF);
+      pOutputBuffer[i++] = (uint8_t)((readout >> 8) & 0xFF);
+      pOutputBuffer[i++] = (uint8_t)(readout & 0xFF);
     }
     break;
 
@@ -421,8 +493,8 @@ void func_id_serial_api_setup(uint8_t inputLength,
     /* HOST->ZW: [SomeUnsupportedCmd] | [SomeData] */
     /* ZW->HOST: SERIAL_API_SETUP_CMD_UNSUPPORTED | [SomeUnsupportedCmd] */
     /* All other commands are unsupported */
-    BYTE_IN_AR(pOutputBuffer, 0) = SERIAL_API_SETUP_CMD_UNSUPPORTED;
-    BYTE_IN_AR(pOutputBuffer, i++) = pInputBuffer[0];
+    pOutputBuffer[0] = SERIAL_API_SETUP_CMD_UNSUPPORTED;
+    pOutputBuffer[i++] = pInputBuffer[0];
     break;
   }
 

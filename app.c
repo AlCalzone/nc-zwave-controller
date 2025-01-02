@@ -36,6 +36,7 @@
 #include "SerialAPI_hw.h"
 #include "zaf_event_distributor_ncp.h"
 #include "zpal_misc.h"
+#include "zpal_watchdog.h"
 #include "zaf_protocol_config.h"
 #ifdef DEBUGPRINT
 #include "ZAF_PrintAppInfo.h"
@@ -43,6 +44,10 @@
 #include "ZAF_AppName.h"
 
 #include <assert.h>
+
+#if (!defined(SL_CATALOG_SILICON_LABS_ZWAVE_APPLICATION_PRESENT) && !defined(UNIT_TEST))
+#include "app_hw.h"
+#endif
 
 /* Basic level definitions */
 #define BASIC_ON 0xFF
@@ -130,8 +135,13 @@ zpal_pm_handle_t io_power_lock;
 SSwTimer mWakeupTimer;
 bool bTxStatusReportEnabled;
 
+
 static void ApplicationInitSW(void);
 static void ApplicationTask(SApplicationHandles *pAppHandles);
+
+#if (defined(SUPPORT_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION) && SUPPORT_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION )
+static bool request_protocol_cc_encryption(SZwaveReceivePackage *pRPCCEPackage);
+#endif
 
 #ifdef ZW_CONTROLLER_BRIDGE
 static void ApplicationCommandHandler_Bridge(SReceiveMulti *pReciveMulti);
@@ -184,12 +194,7 @@ Request(
     uint8_t len        /*IN   Length of data           */
 )
 {
-#if SUPPORT_SERIAL_API_READY
-  /* Only queue Request frame for HOST if SERIAL LINK has been established or we need to send the WakeUp Frame */
-  if (((SERIAL_LINK_DETACHED != serialLinkState) || (wakeUpOnRF)) && (callbackQueue.requestCnt < MAX_CALLBACK_QUEUE))
-#else
   if (callbackQueue.requestCnt < MAX_CALLBACK_QUEUE)
-#endif
   {
     callbackQueue.requestCnt++;
     callbackQueue.requestQueue[callbackQueue.requestIn].wCmd = cmd;
@@ -225,12 +230,7 @@ RequestUnsolicited(
 )
 {
   taskENTER_CRITICAL();
-#if SUPPORT_SERIAL_API_READY
-  /* Only queue Request frame for HOST if SERIAL LINK has been established or we need to send the WakeUp Frame */
-  if (((SERIAL_LINK_DETACHED != serialLinkState) || (wakeUpOnRF)) && (commandQueue.requestCnt < MAX_UNSOLICITED_QUEUE))
-#else
   if (commandQueue.requestCnt < MAX_UNSOLICITED_QUEUE)
-#endif
   {
     commandQueue.requestCnt++;
     commandQueue.requestQueue[commandQueue.requestIn].wCmd = cmd;
@@ -329,6 +329,12 @@ void zaf_event_distributor_app_zw_rx(SZwaveReceivePackage *RxPackage)
         RxPackage->uReceiveParams.RxNodeUpdate.aPayload,
         RxPackage->uReceiveParams.RxNodeUpdate.iLength);
       break;
+#if (defined(SUPPORT_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION) && SUPPORT_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION )
+    case EZWAVERECEIVETYPE_REQUEST_ENCRYPTION_FRAME:
+      ZW_RequestEncryptionStatus(request_protocol_cc_encryption(RxPackage) ? 
+                                 ERPCCEEVENT_SERIALAPI_OK : ERPCCEEVENT_SERIALAPI_FAIL);
+      break;
+#endif
     default:
       break;
   }
@@ -465,7 +471,7 @@ ZW_WEAK void SerialAPI_hw_psu_init(void)
 static void           /*RET  Nothing                  */
 ApplicationTask(SApplicationHandles* pAppHandles)
 {
-
+  uint32_t unhandledEvents = 0;
   SerialAPI_hw_psu_init(); // Must be invoked after the file system is initialized.
 
   // Init
@@ -486,11 +492,13 @@ ApplicationTask(SApplicationHandles* pAppHandles)
   set_state_and_notify(stateStartup);
   // Wait for and process events
   DPRINT("SerialApi Event processor Started\r\n");
-  for (;;)
-  {
-    if (!zaf_event_distributor_distribute())
-    {
+  for(;;) {
+    unhandledEvents = zaf_event_distributor_distribute();
+    if (0 != unhandledEvents) {
+      DPRINTF("Unhandled Events: 0x%08lx\n", unhandledEvents);
+#ifdef UNIT_TEST
       return;
+#endif
     }
   }
 }
@@ -551,13 +559,8 @@ static void SerialAPIStateHandler(void)
 
       case stateIdle:
         {
-#if SUPPORT_SERIAL_API_READY
-          /* Only empty callback queue for HOST if SERIAL LINK has been established  */
-          if (callbackQueue.requestCnt && (SERIAL_LINK_DETACHED != serialLinkState))
-#else
           /* Check if there is anything to transmit. If so do it */
           if (callbackQueue.requestCnt)
-#endif
           {
             comm_interface_transmit_frame(
               callbackQueue.requestQueue[callbackQueue.requestOut].wCmd,
@@ -571,13 +574,8 @@ static void SerialAPIStateHandler(void)
           }
           else
           {
-#if SUPPORT_SERIAL_API_READY
-            /* Only empty command queue for HOST if SERIAL LINK has been established  */
-            if (commandQueue.requestCnt && (SERIAL_LINK_DETACHED != serialLinkState))
-#else
             /* Check if there is anything to transmit. If so do it */
             if (commandQueue.requestCnt)
-#endif
             {
               comm_interface_transmit_frame(
                 commandQueue.requestQueue[commandQueue.requestOut].wCmd,
@@ -594,10 +592,6 @@ static void SerialAPIStateHandler(void)
               /* Nothing to transmit. Check if we received anything */
               if (comm_interface_parse_data(true) == PARSE_FRAME_RECEIVED)
               {
-#if SUPPORT_SERIAL_API_READY
-                /* We have received a frame from HOST so we must assume we are connected */
-                serialLinkState = SERIAL_LINK_CONNECTED;
-#endif
                 /* We got a frame... */
                 set_state_and_notify(stateFrameParse);
               }
@@ -690,11 +684,6 @@ static void SerialAPIStateHandler(void)
       /* All other states are ignored, as for now the only thing we are looking for is ACK/NAK! */
     }
     break;
- #ifdef USB_SUSPEND_SUPPORT
-	case stateAppSuspend:
-		SerialAPI_hw_usb_suspend_handler();
-	break;
-#endif
     default:
       set_state_and_notify(stateIdle);
       break;
@@ -851,12 +840,6 @@ ApplicationInitSW(void)
    AppTimerDeepSleepPersistentRegister(&mWakeupTimer, false, ZCB_WakeupTimeout);  // register for event jobs timeout event
 }
 
-#ifdef USB_SUSPEND_SUPPORT
-void UsbSuspendCallback(void)
-{
-  set_state(stateAppSuspend);
-}
-#endif
 
 /*==============================   ApplicationInit   ======================
 **    Init UART and setup port pins for LEDs
@@ -866,29 +849,19 @@ ZW_APPLICATION_STATUS
 ApplicationInit(
   zpal_reset_reason_t eResetReason)
 {
+  // enable the watchdog at init of application
+  zpal_enable_watchdog(true);
+  
   // Serial API can control hardware with information
   // set in the file system therefore it should be the first
   // step in the Initialization
   appFileSystemInit();
 
+#if (!defined(SL_CATALOG_SILICON_LABS_ZWAVE_APPLICATION_PRESENT) && !defined(UNIT_TEST))
+  /* This preprocessor statement can be deleted from the source code */
   app_hw_init();
-
-#ifdef USB_SUSPEND_SUPPORT
-  SerialAPI_set_usb_supend_callback(UsbSuspendCallback);
 #endif
 
-#if SUPPORT_SERIAL_API_READY
-	if (ZPAL_RESET_REASON_SLEEP == eResetReason)
-	{
-	  /* We have been waken from sleep by timer or external pin event - we must assume we are connected. */
-	  serialLinkState = SERIAL_LINK_CONNECTED;
-	}
-	else
-	{
-		/* We have been waken either by ZPAL_RESET_REASON_POWER_ON or  ZPAL_RESET_REASON_PIN or similar. Initially we are DETACHED */
-	  serialLinkState = SERIAL_LINK_CONNECTED;
-	}
-#endif
   /* g_eApplResetReason now contains lastest System Reset reason */
   g_eApplResetReason = eResetReason;
 
@@ -938,57 +911,36 @@ ApplicationCommandHandler(__attribute__((unused)) void *pSubscriberContext, SZwa
   RECEIVE_OPTIONS_TYPE *rxOpt = &pRxPackage->uReceiveParams.Rx.RxOptions;
   /* ZW->PC: REQ | 0x04 | rxStatus | sourceNode | cmdLength | pCmd[] | rssiVal | securityKey */
   uint8_t offset = 0;
-  BYTE_IN_AR(compl_workbuf, 0) = rxOpt->rxStatus;
+  compl_workbuf[0] = rxOpt->rxStatus;
   if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
   {
-    BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)(rxOpt->sourceNode >> 8);     // MSB
-    BYTE_IN_AR(compl_workbuf, 2) = (uint8_t)(rxOpt->sourceNode & 0xFF);   // LSB
+    compl_workbuf[1] = (uint8_t)(rxOpt->sourceNode >> 8);     // MSB
+    compl_workbuf[2] = (uint8_t)(rxOpt->sourceNode & 0xFF);   // LSB
     offset++;  // 16 bit nodeID means the command fields that follow are offset by one byte
   }
   else
   {
-    BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)(rxOpt->sourceNode & 0xFF);       // Legacy 8 bit nodeID
+    compl_workbuf[1] = (uint8_t)(rxOpt->sourceNode & 0xFF);       // Legacy 8 bit nodeID
   }
-#if defined(ZW_CONTROLLER) && !defined(ZW_CONTROLLER_STATIC)
-  if (cmdLength > (uint8_t)(BUF_SIZE_TX - (offset + (rxOpt->rxStatus & RECEIVE_STATUS_FOREIGN_FRAME ? 5 : 4))))
-  {
-    cmdLength = (uint8_t)(BUF_SIZE_TX - (offset + (rxOpt->rxStatus & RECEIVE_STATUS_FOREIGN_FRAME ? 5 : 4)));
-  }
-#else
   if (cmdLength > (uint8_t)(BUF_SIZE_TX - (offset + 5)))
   {
     cmdLength = (uint8_t)(BUF_SIZE_TX - (offset + 5));
   }
-#endif
-  BYTE_IN_AR(compl_workbuf, offset + 2) = cmdLength;
+  compl_workbuf[offset + 2] = cmdLength;
   for (uint8_t i = 0; i < cmdLength; i++)
   {
-    BYTE_IN_AR(compl_workbuf, offset + 3 + i) = *((uint8_t*)pCmd + i);
+    compl_workbuf[offset + 3 + i] = *((uint8_t*)pCmd + i);
   }
   /* Syntax when a promiscuous frame is received (i.e. RECEIVE_STATUS_FOREIGN_FRAME is set): */
   /* ZW->PC: REQ | 0xD1 | rxStatus | sourceNode | cmdLength | pCmd[] | destNode | rssiVal
    * | securityKey | bSourceTxPower | bSourceNoiseFloor */
-#if defined(ZW_CONTROLLER) && !defined(ZW_CONTROLLER_STATIC)
-  /* For libraries supporting promiscuous mode... */
-  BYTE_IN_AR(compl_workbuf, offset + 3 + cmdLength) = (uint8_t)(rxOpt->destNode & 0xFF);
-  uint8_t index = (uint8_t)(offset + 3 + ((rxOpt->rxStatus & RECEIVE_STATUS_FOREIGN_FRAME) ? 1 : 0) + cmdLength);
-  BYTE_IN_AR(compl_workbuf, index++) = (uint8_t)rxOpt->rxRSSIVal;
-  BYTE_IN_AR(compl_workbuf, index++) = rxOpt->securityKey;
-  BYTE_IN_AR(compl_workbuf, index++) = (uint8_t)rxOpt->bSourceTxPower;
-  BYTE_IN_AR(compl_workbuf, index) = (uint8_t)rxOpt->bSourceNoiseFloor;
-  RequestUnsolicited((rxOpt->rxStatus & RECEIVE_STATUS_FOREIGN_FRAME ?
-                        FUNC_ID_PROMISCUOUS_APPLICATION_COMMAND_HANDLER : FUNC_ID_APPLICATION_COMMAND_HANDLER),
-                     compl_workbuf,
-                     index);
-#else
-  BYTE_IN_AR(compl_workbuf, offset + 3 + cmdLength) = (uint8_t)rxOpt->rxRSSIVal;
-  BYTE_IN_AR(compl_workbuf, offset + 4 + cmdLength) = rxOpt->securityKey;
-  BYTE_IN_AR(compl_workbuf, offset + 5 + cmdLength) = (uint8_t)rxOpt->bSourceTxPower;
-  BYTE_IN_AR(compl_workbuf, offset + 6 + cmdLength) = (uint8_t)rxOpt->bSourceNoiseFloor;
+  compl_workbuf[offset + 3 + cmdLength] = (uint8_t)rxOpt->rxRSSIVal;
+  compl_workbuf[offset + 4 + cmdLength] = rxOpt->securityKey;
+  compl_workbuf[offset + 5 + cmdLength] = (uint8_t)rxOpt->bSourceTxPower;
+  compl_workbuf[offset + 6 + cmdLength] = (uint8_t)rxOpt->bSourceNoiseFloor;
 
   /* Less code space-consuming version for libraries without promiscuous support */
   RequestUnsolicited(FUNC_ID_APPLICATION_COMMAND_HANDLER, compl_workbuf, (uint8_t)(offset + 7 + cmdLength));
-#endif
 }
 #endif
 
@@ -1014,20 +966,20 @@ ApplicationCommandHandler_Bridge(SReceiveMulti* pReceiveMulti)
    *          | pCmd[] | multiDestsOffset_NodeMaskLen | multiDestsNodeMask[] | rssiVal
    *          | securityKey | bSourceTxPower | bSourceNoiseFloor */
   uint8_t offset = 0;
-  BYTE_IN_AR(compl_workbuf, 0) = pReceiveMulti->RxOptions.rxStatus;
+  compl_workbuf[0] = pReceiveMulti->RxOptions.rxStatus;
   if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
   {
-    BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)(pReceiveMulti->RxOptions.destNode >> 8);      // MSB
-    BYTE_IN_AR(compl_workbuf, 2) = (uint8_t)(pReceiveMulti->RxOptions.destNode & 0xFF);    // LSB
-    BYTE_IN_AR(compl_workbuf, 3) = (uint8_t)(pReceiveMulti->RxOptions.sourceNode >> 8);    // MSB
-    BYTE_IN_AR(compl_workbuf, 4) = (uint8_t)(pReceiveMulti->RxOptions.sourceNode & 0xFF);  // LSB
+    compl_workbuf[1] = (uint8_t)(pReceiveMulti->RxOptions.destNode >> 8);      // MSB
+    compl_workbuf[2] = (uint8_t)(pReceiveMulti->RxOptions.destNode & 0xFF);    // LSB
+    compl_workbuf[3] = (uint8_t)(pReceiveMulti->RxOptions.sourceNode >> 8);    // MSB
+    compl_workbuf[4] = (uint8_t)(pReceiveMulti->RxOptions.sourceNode & 0xFF);  // LSB
     offset = 6;  // 16 bit nodeIDs means the command fields that follow are offset by two bytes
   }
   else
   {
     // Legacy 8 bit nodeIDs
-    BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)pReceiveMulti->RxOptions.destNode;
-    BYTE_IN_AR(compl_workbuf, 2) = (uint8_t)pReceiveMulti->RxOptions.sourceNode;
+    compl_workbuf[1] = (uint8_t)pReceiveMulti->RxOptions.destNode;
+    compl_workbuf[2] = (uint8_t)pReceiveMulti->RxOptions.sourceNode;
     offset = 4;
   }
 
@@ -1042,7 +994,7 @@ ApplicationCommandHandler_Bridge(SReceiveMulti* pReceiveMulti)
   {
     cmdLength = (uint8_t)(BUF_SIZE_TX - offset) ;
   }
-  BYTE_IN_AR(compl_workbuf, offset - 1 ) = (uint8_t)cmdLength;
+  compl_workbuf[offset - 1 ] = (uint8_t)cmdLength;
 
   memcpy(compl_workbuf + offset, (uint8_t*)&pReceiveMulti->Payload, cmdLength);
 
@@ -1080,20 +1032,69 @@ ApplicationCommandHandler_Bridge(SReceiveMulti* pReceiveMulti)
     {
       i = (uint8_t)(cmdLength + 1);
     }
-    BYTE_IN_AR(compl_workbuf, (uint8_t)(offset + cmdLength)) = 0;
+    compl_workbuf[(uint8_t)(offset + cmdLength)] = 0;
   }
-  BYTE_IN_AR(compl_workbuf, offset + i) = (uint8_t)pReceiveMulti->RxOptions.rxRSSIVal;
+  compl_workbuf[offset + i] = (uint8_t)pReceiveMulti->RxOptions.rxRSSIVal;
   if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
   {
-    BYTE_IN_AR(compl_workbuf, offset + ++i) = pReceiveMulti->RxOptions.securityKey; //inclusion fails without this
-    BYTE_IN_AR(compl_workbuf, offset + ++i) = (uint8_t)pReceiveMulti->RxOptions.bSourceTxPower;
-    BYTE_IN_AR(compl_workbuf, offset + ++i) = (uint8_t)pReceiveMulti->RxOptions.bSourceNoiseFloor;
+    compl_workbuf[offset + ++i] = pReceiveMulti->RxOptions.securityKey; //inclusion fails without this
+    compl_workbuf[offset + ++i] = (uint8_t)pReceiveMulti->RxOptions.bSourceTxPower;
+    compl_workbuf[offset + ++i] = (uint8_t)pReceiveMulti->RxOptions.bSourceNoiseFloor;
   }
   /* Unified Application Command Handler for Bridge and Virtual nodes */
   RequestUnsolicited(FUNC_ID_APPLICATION_COMMAND_HANDLER_BRIDGE, compl_workbuf, (uint8_t)(offset + 1 + i));
 }
 #endif
 
+#if (defined(SUPPORT_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION) && SUPPORT_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION )
+bool request_protocol_cc_encryption(SZwaveReceivePackage *pRPCCEPackage)
+{
+  bool status = false;
+  ZW_APPLICATION_TX_BUFFER *pCmd = (ZW_APPLICATION_TX_BUFFER *)&pRPCCEPackage->uReceiveParams.RequestEncryption.Payload;
+  uint8_t cmdLength = pRPCCEPackage->uReceiveParams.RequestEncryption.payloadLength;
+  uint8_t *protocolMetadata = (uint8_t *) &pRPCCEPackage->uReceiveParams.RequestEncryption.protocolMetadata;
+  uint8_t protocolMetadataLength = pRPCCEPackage->uReceiveParams.RequestEncryption.protocolMetadataLength;
+  node_id_t destNodeID = pRPCCEPackage->uReceiveParams.RequestEncryption.destNodeID;
+  uint8_t useSupervision = pRPCCEPackage->uReceiveParams.RequestEncryption.useSupervision;
+  static uint8_t sessionId = 0;
+
+  if (protocolMetadataLength != PROTOCOL_METADATA_LENGTH ||
+      cmdLength > (uint8_t)(BUF_SIZE_TX - (5 + protocolMetadataLength)))
+  {
+    return status;
+  }
+
+  /*ZW->HOST: REQ | 0x6C | destNodeID | cmdLength | pCmd | protocolMetadataLength | protocolMetadata | Use Supervision | SessionID */
+  uint8_t offset = 0;
+  if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
+  {
+    compl_workbuf[0] = (uint8_t) (destNodeID >> 8);     // MSB
+    compl_workbuf[1] = (uint8_t) (destNodeID & 0xFF);   // LSB
+    offset += 2;  // 16 bit nodeID means the command fields that follow are offset by one byte
+  }
+  else
+  {
+    compl_workbuf[0] = (uint8_t) (destNodeID & 0xFF);       // Legacy 8 bit nodeID
+    offset++;
+  }
+
+  compl_workbuf[offset++] = cmdLength;
+  memcpy(&compl_workbuf[offset], pCmd, cmdLength);
+  offset += cmdLength;
+
+  compl_workbuf[offset++] = protocolMetadataLength;
+  memcpy(&compl_workbuf[offset], protocolMetadata, protocolMetadataLength);
+  offset += protocolMetadataLength;
+
+  compl_workbuf[offset++] = useSupervision;
+  compl_workbuf[offset++] = sessionId;
+
+  sessionId = (uint8_t) (sessionId % 255) + 1;
+  
+  status = RequestUnsolicited(FUNC_ID_ZW_REQUEST_PROTOCOL_CC_ENCRYPTION, compl_workbuf, offset);
+  return status;
+}
+#endif
 
 /*======================   ApplicationNodeUpdate   =========================
 **    Inform the static controller/slave of node information received
@@ -1108,28 +1109,28 @@ ApplicationNodeUpdate(
 )
 {
   uint8_t offset = 0;
-  BYTE_IN_AR(compl_workbuf, 0) = bStatus;
+  compl_workbuf[0] = bStatus;
   if (SERIAL_API_SETUP_NODEID_BASE_TYPE_16_BIT == nodeIdBaseType)
   {
-    BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)(nodeID >> 8);     // MSB
-    BYTE_IN_AR(compl_workbuf, 2) = (uint8_t)(nodeID & 0xFF);   // LSB
+    compl_workbuf[1] = (uint8_t)(nodeID >> 8);     // MSB
+    compl_workbuf[2] = (uint8_t)(nodeID & 0xFF);   // LSB
     offset++;  // 16 bit nodeID means the command fields that follow are offset by one byte
   }
   else
   {
-    BYTE_IN_AR(compl_workbuf, 1) = (uint8_t)(nodeID & 0xFF);      // Legacy 8 bit nodeID
+    compl_workbuf[1] = (uint8_t)(nodeID & 0xFF);      // Legacy 8 bit nodeID
   }
 
   /*  - Buffer boundary check */
   bLen = (bLen > MAX_NODE_INFO_LENGTH) ? MAX_NODE_INFO_LENGTH : bLen;
   bLen = (bLen > (uint8_t)(BUF_SIZE_TX - (offset + 3))) ? (uint8_t)(BUF_SIZE_TX - (offset + 3)) : bLen;
-
-  BYTE_IN_AR(compl_workbuf, offset + 2) = bLen;
+  
+  compl_workbuf[offset + 2] = bLen;
   if(bLen > 0 && pCmd)
   {
     for (uint8_t i = 0; i < bLen; i++)
     {
-      BYTE_IN_AR(compl_workbuf, offset + 3 + i) = *(pCmd + i);
+      compl_workbuf[offset + 3 + i] = *(pCmd + i);
     }
   }
   RequestUnsolicited(FUNC_ID_ZW_APPLICATION_UPDATE, compl_workbuf, (uint8_t)(offset + bLen + 3));
@@ -1139,16 +1140,3 @@ ZW_WEAK const void * SerialAPI_get_uart_config_ext(void)
 {
   return NULL;
 }
-
-#ifdef USB_SUSPEND_SUPPORT
-
-ZW_WEAK void SerialAPI_set_usb_supend_callback(__attribute__((unused)) SerialAPI_hw_usb_suspend_callback_t callback)
-{
-}
-
-ZW_WEAK void SerialAPI_hw_usb_suspend_handler(void)
-{
-
-}
-
-#endif

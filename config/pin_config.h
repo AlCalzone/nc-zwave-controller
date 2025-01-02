@@ -74,14 +74,6 @@
 // [TIMER4]$
 
 // $[USART0]
-// USART0 TX on PA08
-#ifndef USART0_TX_PORT                          
-#define USART0_TX_PORT                           gpioPortA
-#endif
-#ifndef USART0_TX_PIN                           
-#define USART0_TX_PIN                            8
-#endif
-
 // [USART0]$
 
 // $[I2C1]
@@ -134,7 +126,7 @@
 
 // $[CUSTOM_PIN_NAME]
 #ifndef _PORT                                   
-#define _PORT                                    gpioPortA
+#define _PORT                                    SL_GPIO_PORT_A
 #endif
 #ifndef _PIN                                    
 #define _PIN                                     0
