@@ -55,4 +55,19 @@ extern void zaf_event_distributor_app_serial_timeout(void);
  * @} // addtogroup Events
  */
 
+typedef struct
+{
+	uint8_t event;
+} event_nc_t;
+
+/**
+ * @brief NC proprietary event handler
+ *
+ */
+extern void zaf_event_distributor_app_proprietary(event_nc_t *event);
+
+bool zaf_event_distributor_enqueue_proprietary_app_event(const uint8_t event /*... other params*/);
+
+bool zaf_event_distributor_enqueue_proprietary_app_event_from_isr(const uint8_t event /*... other params*/);
+
 #endif /* ZAF_EVENT_DISTRIBUTOR_NCP_H */
