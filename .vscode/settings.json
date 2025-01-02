@@ -1,0 +1,11 @@
+{
+	"files.associations": {
+		"tsconfig*.json": "jsonc",
+		"tslint*.json": "jsonc",
+		"*.vbhtml": "razor",
+		"ws2812.h": "c",
+		"stdlib.h": "c",
+		"em_ldma.h": "c",
+		"qma6100p.h": "c"
+	}
+}

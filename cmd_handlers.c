@@ -21,6 +21,7 @@
 #include "virtual_slave_node_info.h"
 #include "cmd_handlers.h"
 #include "cmds_management.h"
+#include "cmds_proprietary.h"
 #include "cmds_security.h"
 #include "cmds_rf.h"
 #include "SerialAPI.h"
@@ -3290,4 +3291,14 @@ ZW_ADD_CMD(FUNC_ID_APPLICATION_COMMAND_HANDLER_BRIDGE)
 // Added to make sure that capabilities is correct.
 ZW_ADD_CMD(FUNC_ID_ZW_GET_PROTOCOL_STATUS)
 {
+}
+
+// NC specific SAPI commands
+ZW_ADD_CMD(FUNC_ID_PROPRIETARY_0)
+{
+  /* HOST->ZW: Cmd | [CmdData[]] */
+  /* ZW->HOST: Cmd | CmdRes[] */
+  uint8_t length;
+  func_id_nabu_casa(frame_payload_len(frame), frame->payload, compl_workbuf, &length);
+  DoRespond_workbuf(length);
 }

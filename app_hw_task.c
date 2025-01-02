@@ -13,6 +13,8 @@
 // #define DEBUGPRINT
 #include <DebugPrint.h>
 #include <app_hw_task.h>
+#include "drivers/ws2812.h"
+#include "drivers/qma6100p.h"
 
 /****************************************************************
  * CONFIGURATIONS OF THIS MODULE
@@ -30,7 +32,7 @@
  * MACROS
  ***************************************************************/
 
-#define USER_TASK_WAKEUP_PERIOD 1000
+#define USER_TASK_WAKEUP_PERIOD 500
 
 /****************************************************************
  * FORWARD DECLARATIONS (none preferred)
@@ -57,8 +59,15 @@ NO_RETURN static void executeThread(void)
   {
     zpal_pm_stay_awake(task_power_lock, 0);
 
-    // TODO: Read data
-    // zaf_event_distributor_enqueue_proprietary_app_event(EVENT_APP_USERTASK_GYRO_MEASUREMENT);
+    int16_t acc_data[3];
+    qma6100p_read_raw_xyz(acc_data);
+    gyro_reading_t gyro_reading = {
+        .x = acc_data[0],
+        .y = acc_data[1],
+        .z = acc_data[2]};
+    nc_event_payload_t payload = {
+        .gyro_reading = gyro_reading};
+    zaf_event_distributor_enqueue_proprietary_app_event(EVENT_APP_USERTASK_GYRO_MEASUREMENT, &payload);
 
     zpal_pm_cancel(task_power_lock);
     vTaskDelay(pdMS_TO_TICKS(USER_TASK_WAKEUP_PERIOD));
@@ -89,7 +98,7 @@ NC_UserTask_Hardware(__attribute__((unused)) void *pUserTaskParam)
   task_power_lock = zpal_pm_register(ZPAL_PM_TYPE_DEEP_SLEEP);
 
   // Generate event that says the Data acquisition UserTask has started!
-  if (zaf_event_distributor_enqueue_proprietary_app_event(EVENT_APP_USERTASK_READY))
+  if (zaf_event_distributor_enqueue_proprietary_app_event(EVENT_APP_USERTASK_READY, NULL))
   {
     DPRINT("\r\nNC_UserTask: Ready event is sent to main app!\r\n");
   }
