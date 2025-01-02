@@ -49,6 +49,22 @@
 #include "app_hw.h"
 #endif
 
+/********************************
+ * Data Acquisition Task
+ *******************************/
+#include "app_hw_task.h"
+#include "app_events.h"
+
+#define HW_TASK_STACK_SIZE           1000  // [bytes]
+static TaskHandle_t m_xTaskHandleBackgroundHw   = NULL;
+// Task and stack buffer allocation for the default/main application task!
+static StaticTask_t BackgroundHwTaskBuffer;
+static uint8_t BackgroundHwStackBuffer[HW_TASK_STACK_SIZE];
+
+static void ApplicationInitSW(void);
+static void ApplicationTask(SApplicationHandles *pAppHandles);
+
+
 /* Basic level definitions */
 #define BASIC_ON 0xFF
 #define BASIC_OFF 0x00
@@ -761,6 +777,24 @@ ZCB_WakeupTimeout(__attribute__((unused)) SSwTimer *pTimer)
   DPRINT("ZCB_WakeupTimeout\n");
 }
 
+
+
+void
+zaf_event_distributor_app_proprietary(event_nc_t *event)
+{
+  // Handles NC-specific proprietary events
+  EVENT_APP event_nc = (EVENT_APP) event->event;
+  switch (event_nc) {
+    case EVENT_APP_USERTASK_READY:
+      // TODO
+      break;
+
+    default:
+      // Nothing to do
+      break;
+  }
+}
+
 /*==============================   ApplicationInitSW   ======================
 **    Initialization of the Application Software
 **
@@ -893,6 +927,24 @@ ApplicationInit(
                                                     zaf_get_protocol_config()
                                                     );
   assert(bWasTaskCreated);
+
+
+  // Interact with the hardware in a background task
+  ZW_UserTask_Buffer_t bgHwTaskBuffer;
+  bgHwTaskBuffer.taskBuffer = &BackgroundHwTaskBuffer;
+  bgHwTaskBuffer.stackBuffer = BackgroundHwStackBuffer;
+  bgHwTaskBuffer.stackBufferLength = HW_TASK_STACK_SIZE;
+
+  // Create the task setting-structure!
+  ZW_UserTask_t task;
+  task.pTaskFunc = (TaskFunction_t)NC_UserTask_Hardware;
+  task.pTaskName = "DataAcqu";
+  task.pUserTaskParam = NULL;  // We pass nothing here, as the EventHelper is already initialized and can be used for task IPC!
+  task.priority = USERTASK_PRIORITY_NORMAL;
+  task.taskBuffer = &bgHwTaskBuffer;
+
+  // Create the task!
+  ZW_UserTask_CreateTask(&task, &m_xTaskHandleBackgroundHw);
 
   return (APPLICATION_RUNNING); /*Return false to enter production test mode*/
 }
