@@ -34,13 +34,13 @@ bool invoke_cmd_handler(const comm_interface_frame_ptr frame)
   return false;
 }
 
-void cmd_foreach(cmd_foreach_callback_t callback, cmd_context_t context)
+void cmd_foreach(cmd_foreach_callback_t callback, uint8_t* supported_cmds_mask)
 {
   assert(callback != NULL);
   cmd_handler_map_t const * iter = &cmd_handlers_start;
   for ( ; iter < &cmd_handlers_stop; ++iter)
   {
-    if (true == callback(iter, context)) {
+    if (true == callback(iter, supported_cmds_mask)) {
       break;
     }
   }

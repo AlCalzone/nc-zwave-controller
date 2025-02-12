@@ -44,9 +44,7 @@ cmd_handler_map_t;
  */
 bool invoke_cmd_handler(const comm_interface_frame_ptr frame);
 
-typedef void * cmd_context_t;
-
-typedef bool (*cmd_foreach_callback_t)(cmd_handler_map_t const * const p_cmd_entry, cmd_context_t context);
+typedef bool (*cmd_foreach_callback_t)(cmd_handler_map_t const * const p_cmd_entry, uint8_t* supported_cmds_mask);
 
 /**
  * Invokes callback for each registered command.
@@ -56,7 +54,7 @@ typedef bool (*cmd_foreach_callback_t)(cmd_handler_map_t const * const p_cmd_ent
  * @param callback Callback function to invoke.
  * @param context Context to pass on to the callback function.
  */
-void cmd_foreach(cmd_foreach_callback_t callback, cmd_context_t context);
+void cmd_foreach(cmd_foreach_callback_t callback, uint8_t* supported_cmds_mask);
 
 #ifdef ZW_CONTROLLER
 void ZCB_ComplHandler_ZW_NodeManagement(LEARN_INFO_T *statusInfo);

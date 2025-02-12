@@ -35,9 +35,9 @@ static uint8_t SERIALAPI_CAPABILITIES[CAPABILITIES_SIZE] = {
     SERIALAPI_MANUFACTURER_PRODUCT_ID2
 };
 
-static bool add_cmd_to_capabilities(cmd_handler_map_t const * const p_cmd_entry, cmd_context_t context)
+static bool add_cmd_to_capabilities(cmd_handler_map_t const * const p_cmd_entry, uint8_t* supported_cmds_mask)
 {
-  ZW_NodeMaskSetBit(context, p_cmd_entry->cmd);
+  *(supported_cmds_mask + ((p_cmd_entry->cmd - 1) >> 3)) |= (0x1 << ((p_cmd_entry->cmd - 1) & 7));
   return false;
 }
 
