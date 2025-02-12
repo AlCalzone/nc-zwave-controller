@@ -8,6 +8,9 @@
     <property object="PC00" propertyId="pin.name" value=""/>
     <property object="PC01" propertyId="pin.name" value=""/>
     <property object="PC02" propertyId="pin.name" value=""/>
+    <property object="PC05" propertyId="ABModule.selectedRequirement" value="gpio%T%SL_SIMPLE_BUTTON_BUTTON0%T%sl_simple_button_button0_config.h"/>
+    <property object="PC05" propertyId="pin.name" value="BTN"/>
+    <property object="PC05" propertyId="pin.reserve" value="Reserved"/>
     <property object="PORTIO" propertyId="portio.eusart1.enable.rx" value="Enabled"/>
     <property object="PORTIO" propertyId="portio.eusart1.enable.sclk" value="Enabled"/>
     <property object="PORTIO" propertyId="portio.eusart1.enable.tx" value="Enabled"/>

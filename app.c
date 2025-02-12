@@ -58,6 +58,7 @@
  *******************************/
 #include "app_hw_task.h"
 #include "app_events.h"
+#include "sl_button.h"
 
 #define HW_TASK_STACK_SIZE           1000  // [bytes]
 static TaskHandle_t m_xTaskHandleBackgroundHw   = NULL;
@@ -832,6 +833,30 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
     default:
       // Nothing to do
       break;
+  }
+}
+
+// Called when the button next to the USB port is pressed or released
+void sl_button_on_change(const sl_button_t *handle)
+{
+  if (handle->get_state(handle)) {
+      rgb_t colors[NUMBER_OF_LEDS] = {
+        // G, R, B
+        {255, 0, 0},
+        {255, 0, 0},
+        {255, 0, 0},
+        {255, 0, 0}
+      };
+      set_color_buffer(colors);
+  } else {
+      rgb_t colors[NUMBER_OF_LEDS] = {
+        // G, R, B
+        {4, 0, 0},
+        {4, 0, 0},
+        {4, 0, 0},
+        {4, 0, 0}
+      };
+      set_color_buffer(colors);
   }
 }
 

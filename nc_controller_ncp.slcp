@@ -64,6 +64,8 @@ component:
 - {id: emlib_timer}
 - {id: gpiointerrupt}
 - {id: mpu}
+- instance: [button0]
+  id: simple_button
 - {id: sl_system}
 - {id: zaf_ncp}
 - {id: zw_api_controller}
