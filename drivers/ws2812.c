@@ -34,7 +34,7 @@ LDMA_TransferCfg_t ldmaTXConfig;
 
 // Output buffer for USART
 static uint8_t USART_tx_buffer[USART_BUFFER_SIZE_BYTES];
-static rgb_t rgb_color_buffer[NUMBER_OF_LEDS];
+static rgb_t rgb_color_buffer;
 
 // The WS2812 protocol interprets a signal that is 2/3 high 1/3 low as 1
 // and 1/3 high 2/3 low as 0. This can be done by encoding each bit as 3 bits,
@@ -142,19 +142,26 @@ void initWs2812(void)
   initLDMA();
 }
 
-void get_color_buffer(rgb_t *output_colors)
+rgb_t get_color_buffer()
 {
-  // copy the contents of rgb_color_buffer to output_colors
-  memcpy(output_colors, rgb_color_buffer, sizeof(rgb_color_buffer));
+  return rgb_color_buffer;
 }
 
-void set_color_buffer(const rgb_t *input_colors)
+void set_color_buffer(rgb_t input_color)
 {
   // Remember the current color for later querying
-  memcpy(rgb_color_buffer, input_colors, sizeof(rgb_color_buffer));
+  rgb_color_buffer = input_color;
+
+  // Make it easier to access the color bytes using a pointer
+  rgb_t input_colors[NUMBER_OF_LEDS] = {
+    input_color,
+    input_color,
+    input_color,
+    input_color
+  };
+  const uint8_t *input_color_byte = (uint8_t *) input_colors;
 
   // See above for a more detailed description of the protocol and bit order
-  const uint8_t *input_color_byte = (uint8_t *)input_colors;
   uint32_t usart_buffer_index = 0;
   while (usart_buffer_index < USART_BUFFER_SIZE_BYTES) {
     // FIRST BYTE
@@ -194,51 +201,3 @@ void set_color_buffer(const rgb_t *input_colors)
   USART_tx_buffer[USART_BUFFER_SIZE_BYTES - 1] = ~USART_tx_buffer[USART_BUFFER_SIZE_BYTES - 1] & 0xfe;
   LDMA_StartTransfer(TX_LDMA_CHANNEL, &ldmaTXConfig, &ldmaTXDescriptor);
 }
-
-// rgb_t reduce_color_brightness(rgb_t color, uint8_t intensity_percentage)
-// {
-//   if (intensity_percentage > 100) {
-//     intensity_percentage = 100;
-//   }
-//   rgb_t return_color = {
-//     color.G * intensity_percentage / 100,
-//     color.R * intensity_percentage / 100,
-//     color.B * intensity_percentage / 100
-//   };
-//   return return_color;
-// }
-
-// void color_test()
-// {
-//   rgb_t rgb_color_buffer[NUMBER_OF_LEDS];
-//   int rgb = rand() % 6;
-//   for (uint8_t i = 0; i < NUMBER_OF_LEDS; i++) {
-//     switch (rgb) {
-//       case 0:
-//         rgb_color_buffer[i] = reduce_color_brightness(red, LED_INTENSITY);
-//         break;
-//       case 1:
-//         rgb_color_buffer[i] = reduce_color_brightness(green, LED_INTENSITY);
-//         break;
-//       case 2:
-//         rgb_color_buffer[i] = reduce_color_brightness(blue, LED_INTENSITY);
-//         break;
-//       case 3:
-//         rgb_color_buffer[i] = reduce_color_brightness(yellow, LED_INTENSITY);
-//         break;
-//       case 4:
-//         rgb_color_buffer[i] = reduce_color_brightness(magenta, LED_INTENSITY);
-//         break;
-//       case 5:
-//         rgb_color_buffer[i] = reduce_color_brightness(cyan, LED_INTENSITY);
-//         break;
-//       case 6:
-//         rgb_color_buffer[i] = reduce_color_brightness(white, LED_INTENSITY);
-//         break;
-//       default:
-//         rgb_color_buffer[i] = black;
-//         break;
-//     }
-//   }
-//   set_color_buffer((uint8_t *)rgb_color_buffer);
-// }

@@ -44,8 +44,8 @@ static const rgb_t cyan = { 0xFF, 0x00, 0xFF };
 static const rgb_t white = { 0xFF, 0xFF, 0xFF };
 static const rgb_t black = { 0x00, 0x00, 0x00 };
 
-void get_color_buffer(rgb_t *output_colors);
-void set_color_buffer(const rgb_t *input_colors);
+rgb_t get_color_buffer();
+void set_color_buffer(rgb_t input_color);
 void initWs2812(void);
 // void color_test();
 

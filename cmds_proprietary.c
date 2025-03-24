@@ -68,48 +68,31 @@ void func_id_nabu_casa(uint8_t inputLength,
 #if SUPPORT_LED
   case NABU_CASA_LED_GET:
     // HOST->ZW: NABU_CASA_LED_GET
-    // ZW->HOST: NABU_CASA_LED_GET | num_leds | r_0 | g_0 | b_0 | ... | r_n | g_n | b_n |
+    // ZW->HOST: NABU_CASA_LED_GET | r | g | b |
 
     // Get the current state of the LED
-    rgb_t led_colors[NUMBER_OF_LEDS] = {};
-    get_color_buffer(led_colors);
+    rgb_t led_color = get_color_buffer();
 
-    pOutputBuffer[i++] = NUMBER_OF_LEDS;
-    for (int j = 0; j < NUMBER_OF_LEDS; j++)
-    {
-      pOutputBuffer[i++] = led_colors[j].R;
-      pOutputBuffer[i++] = led_colors[j].G;
-      pOutputBuffer[i++] = led_colors[j].B;
-    }
+    pOutputBuffer[i++] = led_color.R;
+    pOutputBuffer[i++] = led_color.G;
+    pOutputBuffer[i++] = led_color.B;
     break;
 
   case NABU_CASA_LED_SET:
-    // HOST->ZW: NABU_CASA_LED_SET | num_entries | idx_0 | r | g | b | ... | idx_n | r | g | b |
+    // HOST->ZW: NABU_CASA_LED_SET | r | g | b |
     // ZW->HOST: NABU_CASA_LED_SET | true
 
-    if (inputLength >= 1)
+    if (inputLength >= 4)
     {
-      uint8_t num_entries = pInputBuffer[1];
-      if (num_entries <= NUMBER_OF_LEDS && inputLength >= 1 + 4 * num_entries) {
-        // Get the current state of the LED
-        rgb_t led_colors[NUMBER_OF_LEDS] = {};
-        get_color_buffer(led_colors);
-        // Incrementally modify it
-        for (int e = 0; e < num_entries; e++) {
-          int offset = 2 + 4 * e;
-          int idx = pInputBuffer[offset];
-          if (idx < NUMBER_OF_LEDS) {
-            led_colors[idx].R = pInputBuffer[offset + 1];
-            led_colors[idx].G = pInputBuffer[offset + 2];
-            led_colors[idx].B = pInputBuffer[offset + 3];
-          }
-        }
+      uint8_t r = pInputBuffer[1];
+      uint8_t g = pInputBuffer[2];
+      uint8_t b = pInputBuffer[3];
+      rgb_t led_color = {g, r, b};
 
-        // Set the new state of the LED
-        set_color_buffer(led_colors);
+      // Set the new state of the LED
+      set_color_buffer(led_color);
 
-        cmdRes = true;
-      }
+      cmdRes = true;
     }
     pOutputBuffer[i++] = cmdRes;
     break;

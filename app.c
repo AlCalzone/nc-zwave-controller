@@ -795,14 +795,8 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
   switch (event_nc) {
     case EVENT_APP_USERTASK_READY:
       // Indicate that the firmware is ready by enabling the LED at low power
-      rgb_t colors[NUMBER_OF_LEDS] = {
-        // G, R, B
-        {4, 0, 0},
-        {4, 0, 0},
-        {4, 0, 0},
-        {4, 0, 0}
-      };
-      set_color_buffer(colors);
+      rgb_t color = {4, 0, 0};
+      set_color_buffer(color);
       break;
 
     case EVENT_APP_USERTASK_GYRO_MEASUREMENT:
@@ -840,23 +834,11 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
 void sl_button_on_change(const sl_button_t *handle)
 {
   if (handle->get_state(handle)) {
-      rgb_t colors[NUMBER_OF_LEDS] = {
-        // G, R, B
-        {255, 0, 0},
-        {255, 0, 0},
-        {255, 0, 0},
-        {255, 0, 0}
-      };
-      set_color_buffer(colors);
+    rgb_t color = {255, 0, 0};
+    set_color_buffer(color);
   } else {
-      rgb_t colors[NUMBER_OF_LEDS] = {
-        // G, R, B
-        {4, 0, 0},
-        {4, 0, 0},
-        {4, 0, 0},
-        {4, 0, 0}
-      };
-      set_color_buffer(colors);
+    rgb_t color = {4, 0, 0};
+    set_color_buffer(color);
   }
 }
 
