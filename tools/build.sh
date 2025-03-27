@@ -30,7 +30,7 @@ $SLC signature trust --sdk $SDK
 
 # Find the toolchain if not set
 if [ -z "${TOOLCHAIN}" ]; then
-	TOOLCHAIN=$(find /opt -type d -name "*arm-none-eabi*" | head -n 1)
+	TOOLCHAIN=$(find /opt -maxdepth 1 -type d -name "*arm-none-eabi*" | head -n 1)
 	echo "Found toolchain: $TOOLCHAIN"
 fi
 
