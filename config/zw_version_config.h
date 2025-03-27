@@ -21,18 +21,18 @@
 
 // <q USE_USER_APP_VERSION> false: Use Default Z-Wave version numbering, true: Use Application Version Configuration numbering
 // <i> Default: 0
-#define USE_USER_APP_VERSION  0
+#define USE_USER_APP_VERSION  1
 
 // </h>
 // <h> Application Version Configuration
 
 // <o USER_APP_VERSION> Application Major Version <0..255:1> <f.d>
 // <i> Default: 1
-#define USER_APP_VERSION  1
+#define USER_APP_VERSION  0
 
 // <o USER_APP_REVISION> Application Minor Version <0..255:1> <f.d>
 // <i> Default: 0
-#define USER_APP_REVISION  0
+#define USER_APP_REVISION  1
 
 // <o USER_APP_PATCH> Application Patch Version <0..255:1> <f.d>
 // <i> Default: 0
