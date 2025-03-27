@@ -68,23 +68,6 @@ jobs:
           SLC: /opt/slc_cli/slc
           COMMANDER: /opt/commander/commander
 
-      - name: Debug
-        run: |
-          echo "Checking build dir..."
-          ls -la build
-
-          echo "Checking release dir..."
-          ls -la build/release
-
-          echo "Checking debug dir..."
-          ls -la build/debug
-
-          echo "Checking artifact dir..."
-          ls -la artifact
-
-          echo "Checking root dir..."
-          ls -la
-
       - name: Upload GBL
         uses: actions/upload-artifact@v4
         with:
@@ -92,7 +75,7 @@ jobs:
           path: artifact/zwa2_controller.gbl
 
       - name: Copy HEX file
-        run: cp build/release/nc_controller_npc.hex artifact/zwa2_controller.hex
+        run: cp build/release/nc_controller_ncp.hex artifact/zwa2_controller.hex
 
       - name: Upload HEX
         uses: actions/upload-artifact@v4
