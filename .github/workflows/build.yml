@@ -35,7 +35,7 @@ jobs:
       - name: Download Simplicity SDK
         run: |
           curl -o simplicity_sdk_2024.12.1.zip -L https://github.com/SiliconLabs/simplicity_sdk/releases/download/v2024.12.1-0/simplicity-sdk.zip \
-          && unzip -q -d simplicity_sdk simplicity_sdk_2024.12.1.zip \
+          && unzip -q -d /opt/simplicity_sdk simplicity_sdk_2024.12.1.zip \
           && rm simplicity_sdk_2024.12.1.zip
 
       - name: Download SLC CLI
@@ -64,7 +64,7 @@ jobs:
       - name: Build project
         run: tools/build.sh
         env:
-          SDK: ${{ github.workspace }}/simplicity_sdk
+          SDK: /opt/simplicity_sdk
           SLC: /opt/slc_cli/slc
           COMMANDER: /opt/commander/commander
 
