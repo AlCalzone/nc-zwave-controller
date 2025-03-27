@@ -75,7 +75,7 @@ jobs:
           path: artifact/zwa2_controller.gbl
 
       - name: Copy HEX file
-        run: cp build/release/nc_controller_controller_otw.hex artifact/zwa2_controller.hex
+        run: cp build/release/nc_controller_npc.hex artifact/zwa2_controller.hex
 
       - name: Upload HEX
         uses: actions/upload-artifact@v4
