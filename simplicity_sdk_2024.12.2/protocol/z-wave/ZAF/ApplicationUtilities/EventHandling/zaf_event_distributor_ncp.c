@@ -189,11 +189,12 @@ zaf_event_distributor_app_zw_command_status(__attribute__((unused)) SZwaveComman
 {
 }
 
-bool zaf_event_distributor_enqueue_proprietary_app_event(const uint8_t event /*... other params*/)
+bool zaf_event_distributor_enqueue_proprietary_app_event(const uint8_t event, nc_event_payload_t *payload)
 {
   EQueueNotifyingStatus Status = EQUEUENOTIFYING_STATUS_TIMEOUT;
   const event_nc_t event_nc = {
     .event = event,
+    .payload = payload,
   };
   bool returnValue = false;
 
@@ -219,11 +220,12 @@ bool zaf_event_distributor_enqueue_proprietary_app_event(const uint8_t event /*.
   return returnValue;
 }
 
-bool zaf_event_distributor_enqueue_proprietary_app_event_from_isr(const uint8_t event /*... other params*/)
+bool zaf_event_distributor_enqueue_proprietary_app_event_from_isr(const uint8_t event, nc_event_payload_t *payload)
 {
   EQueueNotifyingStatus Status;
   const event_nc_t event_nc = {
     .event = event,
+    .payload = payload,
   };
   bool returnValue = false;
 

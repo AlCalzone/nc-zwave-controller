@@ -2,6 +2,18 @@
 <device:XMLDevice xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:device="http://www.silabs.com/ss/hwconfig/document/device.ecore" name="pin_tool.EFR32ZG23A020F512GM40" partId="mcu.arm.efr32.zg23.efr32zg23a020f512gm40" contextId="com.silabs.sdk.stack.sisdk:2024.12.2._-1669494151">
   <mode name="DefaultMode">
     <property object="DefaultMode" propertyId="mode.diagramLocation" value="100, 100"/>
+    <property object="PA03" propertyId="pin.name" value=""/>
+    <property object="PA04" propertyId="pin.name" value=""/>
+    <property object="PA05" propertyId="pin.name" value=""/>
+    <property object="PC00" propertyId="pin.name" value=""/>
+    <property object="PC01" propertyId="pin.name" value=""/>
+    <property object="PC02" propertyId="pin.name" value=""/>
+    <property object="PORTIO" propertyId="portio.eusart1.enable.rx" value="Enabled"/>
+    <property object="PORTIO" propertyId="portio.eusart1.enable.sclk" value="Enabled"/>
+    <property object="PORTIO" propertyId="portio.eusart1.enable.tx" value="Enabled"/>
+    <property object="PORTIO" propertyId="portio.eusart1.location.rx" value="32"/>
+    <property object="PORTIO" propertyId="portio.eusart1.location.sclk" value="33"/>
+    <property object="PORTIO" propertyId="portio.eusart1.location.tx" value="34"/>
     <property object="PORTIO" propertyId="portio.usart0.enable.rx" value="Enabled"/>
     <property object="PORTIO" propertyId="portio.usart0.enable.tx" value="Enabled"/>
     <property object="PORTIO" propertyId="portio.usart0.location.rx" value="7"/>

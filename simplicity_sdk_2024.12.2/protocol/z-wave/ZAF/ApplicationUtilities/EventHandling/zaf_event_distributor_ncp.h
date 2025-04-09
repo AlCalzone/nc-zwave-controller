@@ -55,9 +55,21 @@ extern void zaf_event_distributor_app_serial_timeout(void);
  * @} // addtogroup Events
  */
 
+typedef struct {
+	int16_t x;
+	int16_t y;
+	int16_t z;
+} gyro_reading_t;
+
+typedef union
+{
+	gyro_reading_t gyro_reading;
+} nc_event_payload_t;
+
 typedef struct
 {
 	uint8_t event;
+	nc_event_payload_t* payload;
 } event_nc_t;
 
 /**
@@ -66,8 +78,8 @@ typedef struct
  */
 extern void zaf_event_distributor_app_proprietary(event_nc_t *event);
 
-bool zaf_event_distributor_enqueue_proprietary_app_event(const uint8_t event /*... other params*/);
+bool zaf_event_distributor_enqueue_proprietary_app_event(const uint8_t event, nc_event_payload_t *payload);
 
-bool zaf_event_distributor_enqueue_proprietary_app_event_from_isr(const uint8_t event /*... other params*/);
+bool zaf_event_distributor_enqueue_proprietary_app_event_from_isr(const uint8_t event, nc_event_payload_t *payload);
 
 #endif /* ZAF_EVENT_DISTRIBUTOR_NCP_H */

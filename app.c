@@ -49,6 +49,10 @@
 #include "app_hw.h"
 #endif
 
+#include "drivers/ws2812.h"
+#include "drivers/qma6100p.h"
+#include "cmds_proprietary.h"
+
 /********************************
  * Data Acquisition Task
  *******************************/
@@ -61,8 +65,11 @@ static TaskHandle_t m_xTaskHandleBackgroundHw   = NULL;
 static StaticTask_t BackgroundHwTaskBuffer;
 static uint8_t BackgroundHwStackBuffer[HW_TASK_STACK_SIZE];
 
+bool bRequestGyroMeasurement = false;
+
 static void ApplicationInitSW(void);
 static void ApplicationTask(SApplicationHandles *pAppHandles);
+
 
 
 /* Basic level definitions */
@@ -786,7 +793,34 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
   EVENT_APP event_nc = (EVENT_APP) event->event;
   switch (event_nc) {
     case EVENT_APP_USERTASK_READY:
-      // TODO
+      // Indicate that the firmware is ready by enabling the LED at low power
+      rgb_t color = {4, 0, 0};
+      set_color_buffer(color);
+      break;
+
+    case EVENT_APP_USERTASK_GYRO_MEASUREMENT:
+      if (!bRequestGyroMeasurement) {
+        return;
+      }
+      bRequestGyroMeasurement = false;
+
+      // A gyro measurement was requested
+      gyro_reading_t gyro_reading = event->payload->gyro_reading;
+
+      uint8_t cmd[8];
+      uint8_t i=0;
+      cmd[i++] = NABU_CASA_GYRO_MEASURE;
+      cmd[i++] = gyro_reading.x >> 8;
+      cmd[i++] = gyro_reading.x & 0xFF;
+      cmd[i++] = gyro_reading.y >> 8;
+      cmd[i++] = gyro_reading.y & 0xFF;
+      cmd[i++] = gyro_reading.z >> 8;
+      cmd[i++] = gyro_reading.z & 0xFF;
+      RequestUnsolicited(
+        FUNC_ID_NABU_CASA,
+        cmd,
+        i
+      );
       break;
 
     default:
@@ -905,6 +939,10 @@ ApplicationInit(
   DebugPrintf("ApplicationInit eResetReason = %d\n", eResetReason);
   ZAF_PrintAppInfo();
 #endif
+
+  // Initialize NC-specific hardware
+  initWs2812();
+  initqma6100p();
 
   /*************************************************************************************
    * CREATE USER TASKS  -  ZW_ApplicationRegisterTask() and ZW_UserTask_CreateTask()
