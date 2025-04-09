@@ -32,10 +32,11 @@
 
 // <o USER_APP_REVISION> Application Minor Version <0..255:1> <f.d>
 // <i> Default: 0
-#define USER_APP_REVISION  1
+#define USER_APP_REVISION  2
 
 // <o USER_APP_PATCH> Application Patch Version <0..255:1> <f.d>
 // <i> Default: 0
+// NOTE: This is not exposed to applications! Probably shouldn't be used to distinguish firmwares.
 #define USER_APP_PATCH  0
 
 // </h>
