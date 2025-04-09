@@ -306,19 +306,19 @@
 // <i> The default value is set to 0x0000 which is Silicon Labs.
 // <i> The value must be updated according to the official list of manufacturers in the Z-Wave Alliance.
 // <i> Default: 0x0000
-#define ZAF_CONFIG_MANUFACTURER_ID  0x0000
+#define ZAF_CONFIG_MANUFACTURER_ID  0x0466
 
 // <o ZAF_CONFIG_PRODUCT_TYPE_ID> Product Type ID <0x0000..0xFFFF:0x1> <f.h>
 // <i> Default is 4 which is a value chosen by Silabs.
 // <i> Silabs consider this to indicate that the device is a Z-Wave Plus Version 2 device.
 // <i> Default: 0x0004
-#define ZAF_CONFIG_PRODUCT_TYPE_ID  0x0004
+#define ZAF_CONFIG_PRODUCT_TYPE_ID  0x0001
 
 // <o ZAF_CONFIG_PRODUCT_ID> Product ID <0x0000..0xFFFF:0x1> <f.h>
 // <i> Default is 0 which is invalid in the context of Silicon Labs Z-Wave apps. According to CC
 // <i> Manufacturer Specific specification, zero is a valid value and can be used as a product ID.
 // <i> Default: 0x0000
-#define ZAF_CONFIG_PRODUCT_ID  4
+#define ZAF_CONFIG_PRODUCT_ID  0x0001
 
 // </h>
 // <h> Device type
