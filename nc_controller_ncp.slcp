@@ -53,7 +53,7 @@ include:
   - {path: virtual_slave_node_info.h}
   - {path: SerialAPI.h}
   - {path: zaf_config_security.h}
-sdk: {id: simplicity_sdk, version: 2024.12.1}
+sdk: {id: simplicity_sdk, version: 2024.12.2}
 toolchain_settings: []
 component:
 - {id: EFR32ZG23A020F512GM40}

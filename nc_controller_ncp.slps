@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ASCII"?>
 <model:MDescriptors xmlns:model="http://www.silabs.com/ss/Studio.ecore">
   <descriptors name="nc_controller_ncp">
-    <properties key="projectCommon.sdkId" value="com.silabs.sdk.stack.sisdk:2024.12.1._1040565261"/>
+    <properties key="projectCommon.sdkId" value="com.silabs.sdk.stack.sisdk:2024.12.2._-1669494151"/>
     <properties key="universalConfig.relativeWorkspacePath" value="..\nc_controller_ncp.slcw"/>
     <properties key="universalConfig.generationDirectory" value=""/>
     <properties key="universalConfig.toolchainCompatibility" value="iar gcc"/>
