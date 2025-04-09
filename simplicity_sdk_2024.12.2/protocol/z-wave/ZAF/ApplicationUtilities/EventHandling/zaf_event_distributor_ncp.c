@@ -21,17 +21,28 @@ static SEventDistributor g_EventDistributor = { 0 };
 
 static void EventHandlerZwRx(void);
 static void EventHandlerZwCommandStatus(void);
+static void EventHandlerProprietary(void);
 
 // Event distributor event handler table
-static const EventDistributorEventHandler g_aEventHandlerTable[6] =
+static const EventDistributorEventHandler g_aEventHandlerTable[7] =
 {
   EventHandlerZwRx,                         // EAPPLICATIONEVENT_ZWRX = 0
   EventHandlerZwCommandStatus,              // EAPPLICATIONEVENT_ZWCOMMANDSTATUS = 1
   zaf_event_distributor_app_state_change,   // EAPPLICATIONEVENT_STATECHANGE  = 2
   zaf_event_distributor_app_serial_data_rx, // EAPPLICATIONEVENT_SERIALDATARX = 3
   zaf_event_distributor_app_serial_timeout, // EAPPLICATIONEVENT_SERIALTIMEOUT = 4
-  AppTimerNotificationHandler
+  AppTimerNotificationHandler,              // EAPPLICATIONEVENT_TIMER = 5
+  EventHandlerProprietary                   // EAPPLICATIONEVENT_PROPRIETARY = 6
 };
+
+/**
+ * Custom event queues for proprietary events.
+ */
+#define NC_EVENT_QUEUE_SIZE 5
+static SQueueNotifying m_NCEventNotifyingQueue = { 0 };
+static StaticQueue_t m_NCEventQueueObject = { 0 };
+static event_nc_t m_NCEventQueueStorage[NC_EVENT_QUEUE_SIZE] = { { 0 } };
+static QueueHandle_t m_NCEventQueue = { 0 };
 
 static void EventHandlerZwRx(void)
 {
@@ -126,8 +137,36 @@ static void EventHandlerZwCommandStatus(void)
   }
 }
 
+/*
+ * Initializes proprietary event queues
+ */
+static void
+EventQueueInit(void)
+{
+  // Initialize Queue Notifier for events in the application.
+  m_NCEventQueue = xQueueCreateStatic(
+    sizeof_array(m_NCEventQueueStorage),
+    sizeof(m_NCEventQueueStorage[0]),
+    (uint8_t*)m_NCEventQueueStorage,
+    &m_NCEventQueueObject
+    );
+
+  /*
+   * Registers events with associated data, and notifies
+   * the specific task about a pending job
+   */
+  QueueNotifyingInit(
+    &m_NCEventNotifyingQueue,
+    m_NCEventQueue,
+    xTaskGetCurrentTaskHandle(),
+    6 /* EAPPLICATIONEVENT_PROPRIETARY */
+  );
+}
+
 void zaf_event_distributor_init(void)
 {
+  EventQueueInit();
+
   EventDistributorConfig(
     &g_EventDistributor,
     sizeof_array(g_aEventHandlerTable),
@@ -148,4 +187,74 @@ zaf_event_distributor_app_zw_rx(__attribute__((unused)) SZwaveReceivePackage *Rx
 ZW_WEAK void
 zaf_event_distributor_app_zw_command_status(__attribute__((unused)) SZwaveCommandStatusPackage *Status)
 {
+}
+
+bool zaf_event_distributor_enqueue_proprietary_app_event(const uint8_t event /*... other params*/)
+{
+  EQueueNotifyingStatus Status = EQUEUENOTIFYING_STATUS_TIMEOUT;
+  const event_nc_t event_nc = {
+    .event = event,
+  };
+  bool returnValue = false;
+
+  Status = QueueNotifyingSendToBack(&m_NCEventNotifyingQueue, (const uint8_t*) &event_nc, 0);
+
+  switch (Status) {
+    case EQUEUENOTIFYING_STATUS_SUCCESS:
+      returnValue = true;
+      break;
+    case EQUEUENOTIFYING_STATUS_WRONG_PARAMETER:
+      DPRINT("Failed to queue event because of wrong input parameter\n");
+      returnValue = false;
+      break;
+    case EQUEUENOTIFYING_STATUS_TIMEOUT:
+      DPRINT("Failed to queue event because of timeout\n");
+      returnValue = false;
+      break;
+    default:
+      returnValue = false;
+      break;
+  }
+
+  return returnValue;
+}
+
+bool zaf_event_distributor_enqueue_proprietary_app_event_from_isr(const uint8_t event /*... other params*/)
+{
+  EQueueNotifyingStatus Status;
+  const event_nc_t event_nc = {
+    .event = event,
+  };
+  bool returnValue = false;
+
+  Status = QueueNotifyingSendToBackFromISR(&m_NCEventNotifyingQueue, (const uint8_t*) &event_nc);
+
+  switch (Status) {
+    case EQUEUENOTIFYING_STATUS_SUCCESS:
+      returnValue = true;
+      break;
+    case EQUEUENOTIFYING_STATUS_WRONG_PARAMETER:
+      DPRINT("Failed to queue event because of wrong input parameter\n");
+      returnValue = false;
+      break;
+    case EQUEUENOTIFYING_STATUS_TIMEOUT:
+      DPRINT("Failed to queue event because of timeout\n");
+      returnValue = false;
+      break;
+    default:
+      returnValue = false;
+      break;
+  }
+
+  return returnValue;
+}
+
+static void EventHandlerProprietary(void)
+{
+  event_nc_t event_nc = { 0 };
+
+  while (xQueueReceive(m_NCEventQueue, (uint8_t*)(&event_nc), 0) == pdTRUE) {
+    DPRINTF("Proprietary Event: %d\n", event_nc.event);
+    zaf_event_distributor_app_proprietary(&event_nc);
+  }
 }
