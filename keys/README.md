@@ -1,0 +1,1 @@
+These keys are here on purpose. They are meant to prevent accidental flashing with the wrong firmware.
