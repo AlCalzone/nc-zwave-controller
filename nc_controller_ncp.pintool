@@ -2,6 +2,12 @@
 <device:XMLDevice xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:device="http://www.silabs.com/ss/hwconfig/document/device.ecore" name="pin_tool.EFR32ZG23A020F512GM40" partId="mcu.arm.efr32.zg23.efr32zg23a020f512gm40" contextId="com.silabs.sdk.stack.sisdk:2024.12.1._1040565261">
   <mode name="DefaultMode">
     <property object="DefaultMode" propertyId="mode.diagramLocation" value="100, 100"/>
+    <property object="PORTIO" propertyId="portio.usart0.enable.rx" value="Enabled"/>
+    <property object="PORTIO" propertyId="portio.usart0.enable.tx" value="Enabled"/>
+    <property object="PORTIO" propertyId="portio.usart0.location.rx" value="7"/>
+    <property object="PORTIO" propertyId="portio.usart0.location.tx" value="8"/>
+    <property object="USART0" propertyId="ABModule.selectedRequirement" value="usart%T%SERIAL_API%T%serial_api_config.h"/>
+    <property object="USART0" propertyId="ABPeripheral.included" value="true"/>
   </mode>
   <modeTransition>
     <property object="RESET &#x2192; DefaultMode" propertyId="modeTransition.source" value="RESET"/>
