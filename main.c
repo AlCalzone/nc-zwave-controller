@@ -16,9 +16,15 @@
  ******************************************************************************/
 #include "sl_system_init.h"
 #include "sl_system_kernel.h"
+#include "stdint.h"
 
 int main(void)
 {
+  // Fix incorrect max. TX Power on Simplicity SDK
+  // Equivalent to m_TxPowerMode = ZW_RADIO_TX_POWER_MODE_20DBM;
+  uint8_t* m_TxPowerMode = (uint8_t*)0x20009503;
+  *m_TxPowerMode = 1;
+
   // Initialize Silicon Labs device, system, service(s) and protocol stack(s).
   // Note that processing task(s) will be created by this call.
   sl_system_init();
