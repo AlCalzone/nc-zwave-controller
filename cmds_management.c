@@ -154,21 +154,23 @@ extern bool bTxStatusReportEnabled;
 zpal_tx_power_t
 GetMaxSupportedTxPower(void)
 {
-  const SApplicationHandles *pAppHandles = ZAF_getAppHandle();
-  SZwaveCommandPackage CommandPackage = {
-    .eCommandType = EZWAVECOMMANDTYPE_ZW_GET_TX_POWER_MAX_SUPPORTED
-  };
-  // Put the Command on queue (and dont wait for it, queue must be empty)
-  if (EQUEUENOTIFYING_STATUS_SUCCESS == QueueNotifyingSendToBack(pAppHandles->pZwCommandQueue, (uint8_t *)&CommandPackage, 0))
-  {
-    // Wait for protocol to handle command
-    SZwaveCommandStatusPackage result = { 0 };
-    if (GetCommandResponse(&result, EZWAVECOMMANDSTATUS_ZW_GET_TX_POWER_MAX_SUPPORTED))
-    {
-      return result.Content.GetTxPowerMaximumSupported.tx_power_max_supported;
-    }
-  }
-  return ZW_TX_POWER_14DBM;
+  // Work around incorrect max. TX Power on Simplicity SDK
+  return ZW_TX_POWER_20DBM;
+  // const SApplicationHandles *pAppHandles = ZAF_getAppHandle();
+  // SZwaveCommandPackage CommandPackage = {
+  //   .eCommandType = EZWAVECOMMANDTYPE_ZW_GET_TX_POWER_MAX_SUPPORTED
+  // };
+  // // Put the Command on queue (and dont wait for it, queue must be empty)
+  // if (EQUEUENOTIFYING_STATUS_SUCCESS == QueueNotifyingSendToBack(pAppHandles->pZwCommandQueue, (uint8_t *)&CommandPackage, 0))
+  // {
+  //   // Wait for protocol to handle command
+  //   SZwaveCommandStatusPackage result = { 0 };
+  //   if (GetCommandResponse(&result, EZWAVECOMMANDSTATUS_ZW_GET_TX_POWER_MAX_SUPPORTED))
+  //   {
+  //     return result.Content.GetTxPowerMaximumSupported.tx_power_max_supported;
+  //   }
+  // }
+  // return ZW_TX_POWER_14DBM;
 }
 
 void func_id_serial_api_setup(uint8_t inputLength,
