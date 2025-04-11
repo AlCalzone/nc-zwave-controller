@@ -16,4 +16,21 @@ typedef enum
   NABU_CASA_GYRO_MEASURE = 3,
 } eNabuCasaCmd;
 
+typedef enum
+{
+  NC_LED_FX_SOLID = 0,
+  NC_LED_FX_FADE = 1,
+} eNabuCasaLedEffect;
+
+// Proprietary data storage
+#define NC_APPDATA_OFFSET_LED 0x00
+
+typedef struct __attribute__((packed)) NabuCasaLedStorage
+{
+  bool valid;
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+} NabuCasaLedStorage_t;
+
 #endif /* APPS_SERIALAPI_CMD_PROPRIETARY_H_ */
