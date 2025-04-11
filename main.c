@@ -22,7 +22,7 @@ int main(void)
 {
   // Fix incorrect max. TX Power on Simplicity SDK
   // Equivalent to m_TxPowerMode = ZW_RADIO_TX_POWER_MODE_20DBM;
-  uint8_t* m_TxPowerMode = (uint8_t*)0x20009503;
+  uint8_t* m_TxPowerMode = (uint8_t*)0x2000950e;
   *m_TxPowerMode = 1;
 
   // Initialize Silicon Labs device, system, service(s) and protocol stack(s).

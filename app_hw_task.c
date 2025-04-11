@@ -32,7 +32,8 @@
  * MACROS
  ***************************************************************/
 
-#define USER_TASK_WAKEUP_PERIOD 500
+#define USER_TASK_WAKEUP_PERIOD 2 // needed to pulse LEDs smoothly
+#define GYRO_MEASURE_PERIOD 500
 
 /****************************************************************
  * FORWARD DECLARATIONS (none preferred)
@@ -55,19 +56,30 @@ static zpal_pm_handle_t task_power_lock;
  */
 NO_RETURN static void executeThread(void)
 {
+  TickType_t last_gyro_measure = 0;
   for (;;)
   {
     zpal_pm_stay_awake(task_power_lock, 0);
 
-    int16_t acc_data[3];
-    qma6100p_read_raw_xyz(acc_data);
-    gyro_reading_t gyro_reading = {
-        .x = acc_data[0],
-        .y = acc_data[1],
-        .z = acc_data[2]};
-    nc_event_payload_t payload = {
-        .gyro_reading = gyro_reading};
-    zaf_event_distributor_enqueue_proprietary_app_event(EVENT_APP_USERTASK_GYRO_MEASUREMENT, &payload);
+    TickType_t now = xTaskGetTickCount();
+
+    // Measure the gyro when it's time
+    if (now - last_gyro_measure >= pdMS_TO_TICKS(GYRO_MEASURE_PERIOD))
+    {
+      int16_t acc_data[3];
+      qma6100p_read_raw_xyz(acc_data);
+      gyro_reading_t gyro_reading = {
+          .x = acc_data[0],
+          .y = acc_data[1],
+          .z = acc_data[2]};
+      nc_event_payload_t payload = {
+          .gyro_reading = gyro_reading};
+      zaf_event_distributor_enqueue_proprietary_app_event(EVENT_APP_USERTASK_GYRO_MEASUREMENT, &payload);
+      last_gyro_measure = now;
+    }
+
+    // Trigger a new LED tick
+    zaf_event_distributor_enqueue_proprietary_app_event(EVENT_APP_USERTASK_TICK_LED, NULL);
 
     zpal_pm_cancel(task_power_lock);
     vTaskDelay(pdMS_TO_TICKS(USER_TASK_WAKEUP_PERIOD));
