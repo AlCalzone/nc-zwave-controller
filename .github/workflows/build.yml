@@ -82,3 +82,12 @@ jobs:
         with:
           name: zwa2_controller.hex
           path: artifact/zwa2_controller.hex
+
+      - name: Copy MAP file
+        run: cp build/release/nc_controller_ncp.map artifact/zwa2_controller.map
+
+      - name: Upload MAP
+        uses: actions/upload-artifact@v4
+        with:
+          name: zwa2_controller.map
+          path: artifact/zwa2_controller.map

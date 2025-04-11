@@ -67,6 +67,9 @@ static StaticTask_t BackgroundHwTaskBuffer;
 static uint8_t BackgroundHwStackBuffer[HW_TASK_STACK_SIZE];
 
 bool bRequestGyroMeasurement = false;
+bool bAwaitingConnection = false;
+LedEffect_t ledEffect = {0};
+LedMode_t ledMode = LED_MODE_STATUS;
 
 static void ApplicationInitSW(void);
 static void ApplicationTask(SApplicationHandles *pAppHandles);
@@ -529,6 +532,11 @@ ApplicationTask(SApplicationHandles* pAppHandles)
 
 static void SerialAPICommandHandler(void)
 {
+  if (bAwaitingConnection) {
+    bAwaitingConnection = false;
+    zaf_event_distributor_enqueue_proprietary_app_event(EVENT_APP_CONNECTED, NULL);
+  }
+
   const bool handler_invoked = invoke_cmd_handler(serial_frame);
   if (!handler_invoked)
   {
@@ -794,19 +802,77 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
   EVENT_APP event_nc = (EVENT_APP) event->event;
   switch (event_nc) {
     case EVENT_APP_USERTASK_READY:
-      // Indicate that the firmware is ready by enabling the LED at low power
-      rgb_t color = {4, 0, 0};
-      set_color_buffer(color);
+      if (ledMode != LED_MODE_MANUAL) {
+        // Fade slowly to white
+        LedEffectFade_t fade = {
+          .color = white,
+          .brightness = 0xff,
+          .increasing = false,
+          .ticksPerStep = 2,
+          .tickCounter = 0
+        };
+        ledEffect = (LedEffect_t) {
+          .type = LED_EFFECT_FADE,
+          .effect.fade = fade
+        };
+        bAwaitingConnection = true;
+      }
+      break;
+
+    case EVENT_APP_CONNECTED:
+      if (ledMode != LED_MODE_MANUAL) {
+        // Indicate that the Serial API is connected by turning the LED white solid
+        if (ledEffect.type == LED_EFFECT_FADE) {
+          ledEffect.effect.fade.stopAtMax = true;
+        } else {
+          LedEffectSolid_t solid = {
+            .color = white,
+            .modified = true
+          };
+          ledEffect = (LedEffect_t) {
+            .type = LED_EFFECT_SOLID,
+            .effect.solid = solid
+          };
+        }
+      }
       break;
 
     case EVENT_APP_USERTASK_GYRO_MEASUREMENT:
+      // A gyro measurement was requested
+      gyro_reading_t gyro_reading = event->payload->gyro_reading;
+
+      if (ledMode == LED_MODE_CALIBRATION) {
+        // Indicate bad orientation (more than 20° from vertical) in calibration mode
+        if (gyro_reading.z < -960 || gyro_reading.z > 960) {
+          LedEffectSolid_t solid = {
+            .color = white,
+            .modified = true
+          };
+          ledEffect = (LedEffect_t) {
+            .type = LED_EFFECT_SOLID,
+            .effect.solid = solid
+          };
+        } else {
+          if (ledEffect.type != LED_EFFECT_FADE || ledEffect.effect.fade.color.R != 0xff) {
+            LedEffectFade_t fade = {
+              .color = red,
+              .brightness = 0xff,
+              .increasing = false,
+              .ticksPerStep = 1,
+              .tickCounter = 0
+            };
+            ledEffect = (LedEffect_t) {
+              .type = LED_EFFECT_FADE,
+              .effect.fade = fade
+            };
+          }
+        }
+      }
+
       if (!bRequestGyroMeasurement) {
         return;
       }
       bRequestGyroMeasurement = false;
-
-      // A gyro measurement was requested
-      gyro_reading_t gyro_reading = event->payload->gyro_reading;
 
       uint8_t cmd[8];
       uint8_t i=0;
@@ -823,6 +889,69 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         i
       );
       break;
+
+    case EVENT_APP_USERTASK_TICK_LED: {
+      switch (ledEffect.type) {
+        case LED_EFFECT_SOLID: {
+          // For solid LED effect, set the color once
+          if (ledEffect.effect.solid.modified) {
+            ledEffect.effect.solid.modified = false;
+            set_color_buffer(ledEffect.effect.solid.color);
+          }
+          break;
+        }
+
+        case LED_EFFECT_FADE: {
+          // For fading, change the brightness every N ticks,
+          // and update the color
+          LedEffectFade_t fade = ledEffect.effect.fade;
+
+          if (fade.brightness > 0xe0 && fade.stopAtMax) {
+            // Switch to solid mode
+            LedEffectSolid_t solid = {
+              .color = fade.color,
+              .modified = true
+            };
+            ledEffect = (LedEffect_t) {
+              .type = LED_EFFECT_SOLID,
+              .effect.solid = solid
+            };
+            break;
+          }
+
+          if (fade.tickCounter == 0) {
+            if (fade.increasing) {
+              fade.brightness++;
+              if (fade.brightness == 0xff) {
+                fade.increasing = false;
+              }
+            } else {
+              fade.brightness--;
+              if (fade.brightness == 0) {
+                fade.increasing = true;
+              }
+            }
+
+            uint16_t r = ((uint16_t) fade.color.R) * ((uint16_t) fade.brightness) / 0xff;
+            uint16_t g = ((uint16_t) fade.color.G) * ((uint16_t) fade.brightness) / 0xff;
+            uint16_t b = ((uint16_t) fade.color.B) * ((uint16_t) fade.brightness) / 0xff;
+
+            rgb_t color = {
+              (uint8_t) g,
+              (uint8_t) r,
+              (uint8_t) b
+            };
+
+            set_color_buffer(color);
+          }
+
+          fade.tickCounter = (fade.tickCounter + 1) % fade.ticksPerStep;
+          ledEffect.effect.fade = fade;
+          break;
+        }
+      }
+      break;
+    }
 
     default:
       // Nothing to do
@@ -956,6 +1085,23 @@ ApplicationInit(
   // Initialize NC-specific hardware
   initWs2812();
   initqma6100p();
+
+  // Try to restore the user-defined color from NVM
+  NabuCasaLedStorage_t ledStorage = {0};
+  if (
+    SerialApiNvmReadAppData(NC_APPDATA_OFFSET_LED, (uint8_t *)&ledStorage, sizeof(ledStorage))
+    && ledStorage.valid
+  ) {
+    rgb_t color = {
+      .G = ledStorage.g,
+      .R = ledStorage.r,
+      .B = ledStorage.b
+    };
+    ledMode = LED_MODE_MANUAL;
+    set_color_buffer(color);
+  } else {
+    set_color_buffer(white);
+  }
 
   /*************************************************************************************
    * CREATE USER TASKS  -  ZW_ApplicationRegisterTask() and ZW_UserTask_CreateTask()
