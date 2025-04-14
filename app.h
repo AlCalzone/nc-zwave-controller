@@ -287,6 +287,7 @@ typedef struct LedEffectFade {
 } LedEffectFade_t;
 
 typedef enum {
+  LED_EFFECT_NOT_SET,
   LED_EFFECT_SOLID,
   LED_EFFECT_FADE
 } LedEffectType_t;
@@ -298,11 +299,5 @@ typedef struct {
     LedEffectFade_t fade;
   } effect;
 } LedEffect_t;
-
-typedef enum {
-  LED_MODE_STATUS = 0,
-  LED_MODE_CALIBRATION = 1,
-  LED_MODE_MANUAL = 2,
-} LedMode_t;
 
 #endif /* _SERIALAPPL_H_ */

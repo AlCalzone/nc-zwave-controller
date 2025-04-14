@@ -12,8 +12,8 @@
 
 #if SUPPORT_LED
 #include "drivers/ws2812.h"
-extern LedEffect_t ledEffect;
-extern LedMode_t ledMode;
+extern LedEffect_t ledEffectUser;
+extern LedEffect_t ledEffectSystem;
 #endif
 #if SUPPORT_GYRO
 #include "drivers/qma6100p.h"
@@ -85,28 +85,47 @@ void func_id_nabu_casa(uint8_t inputLength,
     // HOST->ZW: NABU_CASA_LED_SET | r | g | b | [ effect | speed ]
     // ZW->HOST: NABU_CASA_LED_SET | true
 
-    ledMode = LED_MODE_MANUAL;
-    /*if (ledMode != LED_MODE_MANUAL)
+    if (inputLength >= 4)
     {
-      cmdRes = false;
-    }
-    else*/ if (inputLength >= 4)
-    {
-      uint8_t r = pInputBuffer[1];
-      uint8_t g = pInputBuffer[2];
-      uint8_t b = pInputBuffer[3];
+      int pos = 1;
+      uint8_t r = pInputBuffer[pos++];
+      uint8_t g = pInputBuffer[pos++];
+      uint8_t b = pInputBuffer[pos++];
       rgb_t color = {g, r, b};
 
-      if (inputLength >= 5 && pInputBuffer[4] != NC_LED_FX_SOLID)
+      switch (pInputBuffer[pos++])
+      {
+      case NC_LED_FX_NOT_SET:
+      {
+        // Clear the LED effect
+        ledEffectUser = (LedEffect_t){
+            .type = LED_EFFECT_NOT_SET};
+        break;
+      }
+
+      case NC_LED_FX_SOLID:
+      {
+        // Set solid color as the LED effect
+        LedEffectSolid_t solid = {
+            .color = color,
+            .modified = true};
+        ledEffectUser = (LedEffect_t){
+            .type = LED_EFFECT_SOLID,
+            .effect.solid = solid};
+        break;
+      }
+
+      case NC_LED_FX_FADE:
       {
         // Parse effect
         // Default duration is 1s
         uint8_t ticksPerStep = 1;
-        if (inputLength >= 6)
+        if (inputLength > pos)
         {
           // Parse speed
-          ticksPerStep = pInputBuffer[5];
+          ticksPerStep = pInputBuffer[pos++];
         }
+
         // Set fade effect as the LED effect
         LedEffectFade_t fade = {
             .color = color,
@@ -114,27 +133,33 @@ void func_id_nabu_casa(uint8_t inputLength,
             .increasing = false,
             .ticksPerStep = ticksPerStep,
             .tickCounter = 0};
-        ledEffect = (LedEffect_t){
+        ledEffectUser = (LedEffect_t){
             .type = LED_EFFECT_FADE,
             .effect.fade = fade};
+        break;
       }
-      else
-      {
-        // Set solid color as the LED effect
-        LedEffectSolid_t solid = {
-            .color = color,
-            .modified = true};
-        ledEffect = (LedEffect_t){
-            .type = LED_EFFECT_SOLID,
-            .effect.solid = solid};
       }
 
       // Store the current color in NVM, so it can be restored after a reboot
-      NabuCasaLedStorage_t ledStorage = {
-          .valid = true,
-          .r = r,
-          .g = g,
-          .b = b};
+      NabuCasaLedStorage_t ledStorage;
+      // FIXME: Only override if something changed
+
+      if (ledEffectUser.type == LED_EFFECT_NOT_SET)
+      {
+        ledStorage = (NabuCasaLedStorage_t){
+            .valid = false,
+            .r = 0,
+            .g = 0,
+            .b = 0};
+      }
+      else
+      {
+        ledStorage = (NabuCasaLedStorage_t){
+            .valid = true,
+            .r = r,
+            .g = g,
+            .b = b};
+      }
       SerialApiNvmWriteAppData(NC_APPDATA_OFFSET_LED, (uint8_t *)&ledStorage, sizeof(ledStorage));
 
       cmdRes = true;
@@ -158,6 +183,52 @@ void func_id_nabu_casa(uint8_t inputLength,
     pOutputBuffer[i++] = cmdRes;
     break;
 #endif
+
+  case NABU_CASA_SYSTEM_INDICATION_SET:
+    // HOST->ZW (REQ): NABU_CASA_SYSTEM_INDICATION_SET | severity
+    // ZW->HOST (RES): NABU_CASA_SYSTEM_INDICATION_SET | true
+
+    if (inputLength >= 2) {
+      eNabuCasaSystemIndication severity = (eNabuCasaSystemIndication)pInputBuffer[1];
+      switch (severity) {
+        case NC_SYS_INDICATION_OFF:
+          ledEffectSystem = (LedEffect_t) {
+            .type = LED_EFFECT_NOT_SET
+          };
+          if (ledEffectUser.type == LED_EFFECT_SOLID) {
+            ledEffectUser.effect.solid.modified = true;
+          }
+
+          cmdRes = true;
+          break;
+        case NC_SYS_INDICATION_WARN:
+          ledEffectSystem = (LedEffect_t) {
+            .type = LED_EFFECT_SOLID,
+            .effect.solid = {
+              .color = yellow,
+              .modified = true
+            }
+          };
+          cmdRes = true;
+          break;
+        case NC_SYS_INDICATION_ERROR:
+          ledEffectSystem = (LedEffect_t) {
+            .type = LED_EFFECT_SOLID,
+            .effect.solid = {
+              .color = red,
+              .modified = true
+            }
+          };
+          cmdRes = true;
+          break;
+        default:
+          // Unsupported. Do nothing
+          break;
+      }
+    }
+
+    pOutputBuffer[i++] = cmdRes;
+    break;
 
   default:
     // Unsupported. Return false

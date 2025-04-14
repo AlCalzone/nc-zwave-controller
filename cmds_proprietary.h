@@ -14,13 +14,22 @@ typedef enum
   NABU_CASA_LED_GET = 1,
   NABU_CASA_LED_SET = 2,
   NABU_CASA_GYRO_MEASURE = 3,
+  NABU_CASA_SYSTEM_INDICATION_SET = 4,
 } eNabuCasaCmd;
 
 typedef enum
 {
-  NC_LED_FX_SOLID = 0,
-  NC_LED_FX_FADE = 1,
+  NC_LED_FX_NOT_SET = 0,
+  NC_LED_FX_SOLID = 1,
+  NC_LED_FX_FADE = 2,
 } eNabuCasaLedEffect;
+
+typedef enum NC_SYS_INDICATION
+{
+  NC_SYS_INDICATION_OFF = 0,
+  NC_SYS_INDICATION_WARN = 1,
+  NC_SYS_INDICATION_ERROR = 2,
+} eNabuCasaSystemIndication;
 
 // Proprietary data storage
 #define NC_APPDATA_OFFSET_LED 0x00

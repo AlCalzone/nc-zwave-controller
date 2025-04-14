@@ -66,10 +66,23 @@ static TaskHandle_t m_xTaskHandleBackgroundHw   = NULL;
 static StaticTask_t BackgroundHwTaskBuffer;
 static uint8_t BackgroundHwStackBuffer[HW_TASK_STACK_SIZE];
 
+// Gyro measurements
 bool bRequestGyroMeasurement = false;
+gyro_reading_t last_gyro_reading = {0};
+int stable_gyro_readings = 0;
+
 bool bAwaitingConnection = false;
-LedEffect_t ledEffect = {0};
-LedMode_t ledMode = LED_MODE_STATUS;
+// Whether incorrect tilt was detected and should be indicated
+bool bTiltDetected = false;
+
+// LED state set by the user
+LedEffect_t ledEffectUser = {0};
+// LED state for the connection indication
+LedEffect_t ledEffectConnectionState = {0};
+// Separate high priority LED state for system indication
+LedEffect_t ledEffectSystem = {0};
+// LED state to indicate incorrect tilt
+LedEffect_t ledEffectTilt = {0};
 
 static void ApplicationInitSW(void);
 static void ApplicationTask(SApplicationHandles *pAppHandles);
@@ -793,7 +806,26 @@ ZCB_WakeupTimeout(__attribute__((unused)) SSwTimer *pTimer)
   DPRINT("ZCB_WakeupTimeout\n");
 }
 
+/* Returns the current effect that should be used for the LED */
+LedEffect_t*
+get_current_led_effect(void) {
+  if (ledEffectSystem.type != LED_EFFECT_NOT_SET) {
+    return &ledEffectSystem;
+  } else if (bTiltDetected) {
+    return &ledEffectTilt;
+  } else if (ledEffectUser.type != LED_EFFECT_NOT_SET) {
+    return &ledEffectUser;
+  } else {
+    return &ledEffectConnectionState;
+  }
+}
 
+void
+mark_user_led_effect_modified(void) {
+  if (ledEffectUser.type == LED_EFFECT_SOLID) {
+    ledEffectUser.effect.solid.modified = true;
+  }
+}
 
 void
 zaf_event_distributor_app_proprietary(event_nc_t *event)
@@ -801,72 +833,83 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
   // Handles NC-specific proprietary events
   EVENT_APP event_nc = (EVENT_APP) event->event;
   switch (event_nc) {
-    case EVENT_APP_USERTASK_READY:
-      if (ledMode != LED_MODE_MANUAL) {
-        // Fade slowly to white
-        LedEffectFade_t fade = {
+    case EVENT_APP_USERTASK_READY: {
+      // Fade slowly to white
+      LedEffectFade_t fade = {
+        .color = white,
+        .brightness = 0xff,
+        .increasing = false,
+        .ticksPerStep = 2,
+        .tickCounter = 0
+      };
+      ledEffectConnectionState = (LedEffect_t) {
+        .type = LED_EFFECT_FADE,
+        .effect.fade = fade
+      };
+      bAwaitingConnection = true;
+      break;
+    }
+
+    case EVENT_APP_CONNECTED: {
+      if (ledEffectConnectionState.type == LED_EFFECT_FADE) {
+        // Stop the animation to indicate that we're connected
+        ledEffectConnectionState.effect.fade.stopAtMax = true;
+      } else {
+        // If we were not in fade mode, set the color to white
+        LedEffectSolid_t solid = {
           .color = white,
-          .brightness = 0xff,
-          .increasing = false,
-          .ticksPerStep = 2,
-          .tickCounter = 0
+          .modified = true
         };
-        ledEffect = (LedEffect_t) {
-          .type = LED_EFFECT_FADE,
-          .effect.fade = fade
+        ledEffectConnectionState = (LedEffect_t) {
+          .type = LED_EFFECT_SOLID,
+          .effect.solid = solid
         };
-        bAwaitingConnection = true;
       }
       break;
+    }
 
-    case EVENT_APP_CONNECTED:
-      if (ledMode != LED_MODE_MANUAL) {
-        // Indicate that the Serial API is connected by turning the LED white solid
-        if (ledEffect.type == LED_EFFECT_FADE) {
-          ledEffect.effect.fade.stopAtMax = true;
-        } else {
-          LedEffectSolid_t solid = {
-            .color = white,
-            .modified = true
-          };
-          ledEffect = (LedEffect_t) {
-            .type = LED_EFFECT_SOLID,
-            .effect.solid = solid
-          };
-        }
-      }
-      break;
-
-    case EVENT_APP_USERTASK_GYRO_MEASUREMENT:
+    case EVENT_APP_USERTASK_GYRO_MEASUREMENT: {
       // A gyro measurement was requested
       gyro_reading_t gyro_reading = event->payload->gyro_reading;
 
-      if (ledMode == LED_MODE_CALIBRATION) {
-        // Indicate bad orientation (more than 20° from vertical) in calibration mode
-        if (gyro_reading.z < -960 || gyro_reading.z > 960) {
-          LedEffectSolid_t solid = {
-            .color = white,
-            .modified = true
-          };
-          ledEffect = (LedEffect_t) {
-            .type = LED_EFFECT_SOLID,
-            .effect.solid = solid
-          };
-        } else {
-          if (ledEffect.type != LED_EFFECT_FADE || ledEffect.effect.fade.color.R != 0xff) {
-            LedEffectFade_t fade = {
-              .color = red,
-              .brightness = 0xff,
-              .increasing = false,
-              .ticksPerStep = 1,
-              .tickCounter = 0
-            };
-            ledEffect = (LedEffect_t) {
-              .type = LED_EFFECT_FADE,
-              .effect.fade = fade
-            };
-          }
+      // Debounce the readings
+      if (last_gyro_reading.x == 0 && last_gyro_reading.y == 0 && last_gyro_reading.z == 0) {
+        last_gyro_reading = gyro_reading;
+        return;
+      } else if (abs(gyro_reading.x - last_gyro_reading.x) < 25 &&
+                 abs(gyro_reading.y - last_gyro_reading.y) < 25 &&
+                 abs(gyro_reading.z - last_gyro_reading.z) < 25) {
+        stable_gyro_readings++;
+      } else {
+        stable_gyro_readings = 0;
+      }
+      last_gyro_reading = gyro_reading;
+
+      if (stable_gyro_readings < 3) {
+        // Not enough stable readings, ignore this one
+        return;
+      }
+
+      // Indicate bad orientation (more than 20° from vertical) in calibration mode
+      if (gyro_reading.z < -960 || gyro_reading.z > 960) {
+        if (bTiltDetected) {
+          // Mark the user LED effect as modified, so it gets used again
+          mark_user_led_effect_modified();
         }
+        bTiltDetected = false;
+      } else if (!bTiltDetected) {
+        LedEffectFade_t fade = {
+          .color = red,
+          .brightness = 0xff,
+          .increasing = false,
+          .ticksPerStep = 1,
+          .tickCounter = 0
+        };
+        ledEffectTilt = (LedEffect_t) {
+          .type = LED_EFFECT_FADE,
+          .effect.fade = fade
+        };
+        bTiltDetected = true;
       }
 
       if (!bRequestGyroMeasurement) {
@@ -889,14 +932,17 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         i
       );
       break;
+    }
 
     case EVENT_APP_USERTASK_TICK_LED: {
-      switch (ledEffect.type) {
+      LedEffect_t* ledEffect = get_current_led_effect();
+
+      switch (ledEffect->type) {
         case LED_EFFECT_SOLID: {
           // For solid LED effect, set the color once
-          if (ledEffect.effect.solid.modified) {
-            ledEffect.effect.solid.modified = false;
-            set_color_buffer(ledEffect.effect.solid.color);
+          if (ledEffect->effect.solid.modified) {
+            ledEffect->effect.solid.modified = false;
+            set_color_buffer(ledEffect->effect.solid.color);
           }
           break;
         }
@@ -904,7 +950,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         case LED_EFFECT_FADE: {
           // For fading, change the brightness every N ticks,
           // and update the color
-          LedEffectFade_t fade = ledEffect.effect.fade;
+          LedEffectFade_t fade = ledEffect->effect.fade;
 
           if (fade.brightness > 0xe0 && fade.stopAtMax) {
             // Switch to solid mode
@@ -912,7 +958,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
               .color = fade.color,
               .modified = true
             };
-            ledEffect = (LedEffect_t) {
+            *ledEffect = (LedEffect_t) {
               .type = LED_EFFECT_SOLID,
               .effect.solid = solid
             };
@@ -946,17 +992,21 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
           }
 
           fade.tickCounter = (fade.tickCounter + 1) % fade.ticksPerStep;
-          ledEffect.effect.fade = fade;
+          ledEffect->effect.fade = fade;
           break;
         }
-      }
+
+        default:
+          // Nothing to do
+          break;
+      } // switch (ledEffect->type)
       break;
     }
 
     default:
       // Nothing to do
       break;
-  }
+  } // switch (event_nc)
 }
 
 // Called when the button next to the USB port is pressed or released
@@ -1097,7 +1147,13 @@ ApplicationInit(
       .R = ledStorage.r,
       .B = ledStorage.b
     };
-    ledMode = LED_MODE_MANUAL;
+    ledEffectUser = (LedEffect_t) {
+      .type = LED_EFFECT_SOLID,
+      .effect.solid = {
+        .color = color,
+        .modified = true
+      }
+    };
     set_color_buffer(color);
   } else {
     set_color_buffer(white);

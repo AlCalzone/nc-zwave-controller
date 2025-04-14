@@ -33,7 +33,7 @@
  ***************************************************************/
 
 #define USER_TASK_WAKEUP_PERIOD 2 // needed to pulse LEDs smoothly
-#define GYRO_MEASURE_PERIOD 500
+#define GYRO_MEASURE_PERIOD 150
 
 /****************************************************************
  * FORWARD DECLARATIONS (none preferred)
