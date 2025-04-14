@@ -14,6 +14,7 @@
 #include "drivers/ws2812.h"
 extern LedEffect_t ledEffectUser;
 extern LedEffect_t ledEffectSystem;
+extern LedEffect_t ledEffectConnectionState;
 #endif
 #if SUPPORT_GYRO
 #include "drivers/qma6100p.h"
@@ -195,8 +196,12 @@ void func_id_nabu_casa(uint8_t inputLength,
           ledEffectSystem = (LedEffect_t) {
             .type = LED_EFFECT_NOT_SET
           };
+          // Force-swap the current effect
           if (ledEffectUser.type == LED_EFFECT_SOLID) {
             ledEffectUser.effect.solid.modified = true;
+          }
+          if (ledEffectConnectionState.type == LED_EFFECT_SOLID) {
+            ledEffectConnectionState.effect.solid.modified = true;
           }
 
           cmdRes = true;
