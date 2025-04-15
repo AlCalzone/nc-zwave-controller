@@ -75,10 +75,10 @@ bool bAwaitingConnection = false;
 // Whether incorrect tilt was detected and should be indicated
 bool bTiltDetected = false;
 
+// Default LED effect when no other effect is set
+LedEffect_t ledEffectDefault = {0};
 // LED state set by the user
 LedEffect_t ledEffectUser = {0};
-// LED state for the connection indication
-LedEffect_t ledEffectConnectionState = {0};
 // Separate high priority LED state for system indication
 LedEffect_t ledEffectSystem = {0};
 // LED state to indicate incorrect tilt
@@ -816,14 +816,17 @@ get_current_led_effect(void) {
   } else if (ledEffectUser.type != LED_EFFECT_NOT_SET) {
     return &ledEffectUser;
   } else {
-    return &ledEffectConnectionState;
+    return &ledEffectDefault;
   }
 }
 
 void
-mark_user_led_effect_modified(void) {
+mark_solid_led_effect_modified(void) {
   if (ledEffectUser.type == LED_EFFECT_SOLID) {
     ledEffectUser.effect.solid.modified = true;
+  }
+  if (ledEffectDefault.type == LED_EFFECT_SOLID) {
+    ledEffectDefault.effect.solid.modified = true;
   }
 }
 
@@ -842,7 +845,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         .ticksPerStep = 2,
         .tickCounter = 0
       };
-      ledEffectConnectionState = (LedEffect_t) {
+      ledEffectDefault = (LedEffect_t) {
         .type = LED_EFFECT_FADE,
         .effect.fade = fade
       };
@@ -851,16 +854,16 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
     }
 
     case EVENT_APP_CONNECTED: {
-      if (ledEffectConnectionState.type == LED_EFFECT_FADE) {
+      if (ledEffectDefault.type == LED_EFFECT_FADE) {
         // Stop the animation to indicate that we're connected
-        ledEffectConnectionState.effect.fade.stopAtMax = true;
+        ledEffectDefault.effect.fade.stopAtMax = true;
       } else {
         // If we were not in fade mode, set the color to white
         LedEffectSolid_t solid = {
           .color = white,
           .modified = true
         };
-        ledEffectConnectionState = (LedEffect_t) {
+        ledEffectDefault = (LedEffect_t) {
           .type = LED_EFFECT_SOLID,
           .effect.solid = solid
         };
@@ -894,7 +897,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
       if (gyro_reading.z < -960 || gyro_reading.z > 960) {
         if (bTiltDetected) {
           // Mark the user LED effect as modified, so it gets used again
-          mark_user_led_effect_modified();
+          mark_solid_led_effect_modified();
         }
         bTiltDetected = false;
       } else if (!bTiltDetected) {
