@@ -75,6 +75,7 @@ int stable_gyro_readings = 0;
 bool bAwaitingConnection = false;
 // Whether incorrect tilt was detected and should be indicated
 bool bTiltDetected = false;
+bool bEnableTiltDetection = true;
 
 // Default LED effect when no other effect is set
 LedEffect_t ledEffectDefault = {0};
@@ -812,7 +813,7 @@ LedEffect_t*
 get_current_led_effect(void) {
   if (ledEffectSystem.type != LED_EFFECT_NOT_SET) {
     return &ledEffectSystem;
-  } else if (bTiltDetected) {
+  } else if (bEnableTiltDetection && bTiltDetected) {
     return &ledEffectTilt;
   } else if (ledEffectUser.type != LED_EFFECT_NOT_SET) {
     return &ledEffectUser;
@@ -1162,6 +1163,9 @@ ApplicationInit(
   } else {
     set_color_buffer(white);
   }
+
+  // Try to restore settings from NVM
+  bEnableTiltDetection = nc_config_get(NC_CFG_ENABLE_TILT_INDICATOR);
 
   /*************************************************************************************
    * CREATE USER TASKS  -  ZW_ApplicationRegisterTask() and ZW_UserTask_CreateTask()

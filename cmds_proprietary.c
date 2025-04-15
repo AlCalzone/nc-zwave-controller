@@ -19,7 +19,27 @@ extern LedEffect_t ledEffectDefault;
 #if SUPPORT_GYRO
 #include "drivers/qma6100p.h"
 extern bool bRequestGyroMeasurement;
+extern bool bEnableTiltDetection;
 #endif
+
+bool nc_config_get(eNabuCasaConfigKey key) {
+  NabuCasaConfigStorage_t cfg = CONFIG_STORAGE_DEFAULTS;
+  ZAF_nvm_app_read(FILE_ID_NABUCASA_CONFIG, &cfg, sizeof(cfg));
+  return (cfg.flags & (1 << key)) != 0;
+}
+
+void nc_config_set(eNabuCasaConfigKey key, bool value) {
+  NabuCasaConfigStorage_t cfg = CONFIG_STORAGE_DEFAULTS;
+  ZAF_nvm_app_read(FILE_ID_NABUCASA_CONFIG, &cfg, sizeof(cfg));
+
+  if (value) {
+    cfg.flags |= (1 << key);
+  } else {
+    cfg.flags &= ~(1 << key);
+  }
+
+  ZAF_nvm_app_write(FILE_ID_NABUCASA_CONFIG, &cfg, sizeof(cfg));
+}
 
 void func_id_nabu_casa(uint8_t inputLength,
                        const uint8_t *pInputBuffer,
@@ -57,6 +77,7 @@ void func_id_nabu_casa(uint8_t inputLength,
 #if SUPPORT_LED
     BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_LED_GET);
     BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_LED_SET);
+    BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_SYSTEM_INDICATION_SET);
 #endif
 #if SUPPORT_GYRO
     BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_GYRO_MEASURE);
@@ -167,23 +188,6 @@ void func_id_nabu_casa(uint8_t inputLength,
     }
     pOutputBuffer[i++] = cmdRes;
     break;
-#endif
-
-#if SUPPORT_GYRO
-  case NABU_CASA_GYRO_MEASURE:
-    // HOST->ZW (REQ): NABU_CASA_GYRO_MEASURE
-    // ZW->HOST (RES): NABU_CASA_GYRO_MEASURE | true
-    // later
-    // ZW->HOST (CB):  NABU_CASA_GYRO_MEASURE
-    //           | accel_x (MSB) | accel_x (LSB)
-    //           | accel_y (MSB) | accel_y (LSB)
-    //           | accel_z (MSB) | accel_z (LSB)
-
-    bRequestGyroMeasurement = true;
-    cmdRes = true;
-    pOutputBuffer[i++] = cmdRes;
-    break;
-#endif
 
   case NABU_CASA_SYSTEM_INDICATION_SET:
     // HOST->ZW (REQ): NABU_CASA_SYSTEM_INDICATION_SET | severity
@@ -224,6 +228,62 @@ void func_id_nabu_casa(uint8_t inputLength,
               .modified = true
             }
           };
+          cmdRes = true;
+          break;
+        default:
+          // Unsupported. Do nothing
+          break;
+      }
+    }
+
+    pOutputBuffer[i++] = cmdRes;
+    break;
+#endif
+
+#if SUPPORT_GYRO
+  case NABU_CASA_GYRO_MEASURE:
+    // HOST->ZW (REQ): NABU_CASA_GYRO_MEASURE
+    // ZW->HOST (RES): NABU_CASA_GYRO_MEASURE | true
+    // later
+    // ZW->HOST (CB):  NABU_CASA_GYRO_MEASURE
+    //           | accel_x (MSB) | accel_x (LSB)
+    //           | accel_y (MSB) | accel_y (LSB)
+    //           | accel_z (MSB) | accel_z (LSB)
+
+    bRequestGyroMeasurement = true;
+    cmdRes = true;
+    pOutputBuffer[i++] = cmdRes;
+    break;
+#endif
+
+  case NABU_CASA_CONFIG_GET:
+    // HOST->ZW (REQ): NABU_CASA_CONFIG_GET | key
+    // ZW->HOST (RES): NABU_CASA_CONFIG_GET | key | value
+
+    if (inputLength >= 2) {
+      eNabuCasaConfigKey key = (eNabuCasaConfigKey)pInputBuffer[1];
+      bool value = nc_config_get(key);
+      pOutputBuffer[i++] = key;
+      pOutputBuffer[i++] = value;
+    } else {
+      // invalid command
+      pOutputBuffer[i++] = 0xFF;
+    }
+    break;
+
+  case NABU_CASA_CONFIG_SET:
+    // HOST->ZW (REQ): NABU_CASA_CONFIG_SET | key | value
+    // ZW->HOST (RES): NABU_CASA_CONFIG_SET | success
+
+    if (inputLength >= 3) {
+      eNabuCasaConfigKey key = (eNabuCasaConfigKey)pInputBuffer[1];
+      bool value = pInputBuffer[2] != 0;
+      switch (key) {
+        case NC_CFG_ENABLE_TILT_INDICATOR:
+          // Save change in NVM
+          nc_config_set(key, value);
+          // and forward to application
+          bEnableTiltDetection = value;
           cmdRes = true;
           break;
         default:
