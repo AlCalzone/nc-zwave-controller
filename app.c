@@ -823,7 +823,7 @@ get_current_led_effect(void) {
 }
 
 void
-mark_solid_led_effect_modified(void) {
+trigger_led_effect_refresh(void) {
   if (ledEffectUser.type == LED_EFFECT_SOLID) {
     ledEffectUser.effect.solid.modified = true;
   }
@@ -899,7 +899,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
       if (gyro_reading.z < -960 || gyro_reading.z > 960) {
         if (bTiltDetected) {
           // Mark the user LED effect as modified, so it gets used again
-          mark_solid_led_effect_modified();
+          trigger_led_effect_refresh();
         }
         bTiltDetected = false;
       } else if (!bTiltDetected) {

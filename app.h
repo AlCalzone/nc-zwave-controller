@@ -272,6 +272,8 @@ extern void ApplicationNodeUpdate(uint8_t bStatus, uint16_t nodeID, uint8_t *pCm
 
 extern uint8_t compl_workbuf[BUF_SIZE_TX];
 
+void trigger_led_effect_refresh(void);
+
 typedef struct LedEffectSolid {
   rgb_t color;
   bool modified;
