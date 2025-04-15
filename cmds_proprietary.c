@@ -83,6 +83,8 @@ void func_id_nabu_casa(uint8_t inputLength,
 #if SUPPORT_GYRO
     BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_GYRO_MEASURE);
 #endif
+    BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_CONFIG_GET);
+    BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_CONFIG_SET);
 
     // Copy as few bytes as necessary into the output buffer
     for (int j = 0; j <= NABU_CASA_CMD_SUPPORTED / 8; j++)
