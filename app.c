@@ -42,6 +42,7 @@
 #include "ZAF_PrintAppInfo.h"
 #endif
 #include "ZAF_AppName.h"
+#include <ZAF_nvm_app.h>
 
 #include <assert.h>
 
@@ -1142,7 +1143,7 @@ ApplicationInit(
   // Try to restore the user-defined color from NVM
   NabuCasaLedStorage_t ledStorage = {0};
   if (
-    SerialApiNvmReadAppData(NC_APPDATA_OFFSET_LED, (uint8_t *)&ledStorage, sizeof(ledStorage))
+    ZPAL_STATUS_OK == ZAF_nvm_app_read(FILE_ID_NABUCASA_LED, &ledStorage, sizeof(ledStorage))
     && ledStorage.valid
   ) {
     rgb_t color = {

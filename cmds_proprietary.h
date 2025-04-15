@@ -32,7 +32,9 @@ typedef enum NC_SYS_INDICATION
 } eNabuCasaSystemIndication;
 
 // Proprietary data storage
-#define NC_APPDATA_OFFSET_LED 0x00
+// Application specific files should use identifiers in the range 0x00000—0x0FFFF,
+// so the effective identifier address range is reduced to 16 bits.
+#define FILE_ID_NABUCASA_LED  0x4660
 
 typedef struct __attribute__((packed)) NabuCasaLedStorage
 {

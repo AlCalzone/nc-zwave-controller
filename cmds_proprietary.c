@@ -1,7 +1,7 @@
 #include <app.h>
 #include <cmds_proprietary.h>
 #include <string.h>
-#include "serialapi_file.h"
+#include <ZAF_nvm_app.h>
 
 #define BYTE_INDEX(x) (x / 8)
 #define BYTE_OFFSET(x) (1 << (x % 8))
@@ -161,7 +161,7 @@ void func_id_nabu_casa(uint8_t inputLength,
             .g = g,
             .b = b};
       }
-      SerialApiNvmWriteAppData(NC_APPDATA_OFFSET_LED, (uint8_t *)&ledStorage, sizeof(ledStorage));
+      ZAF_nvm_app_write(FILE_ID_NABUCASA_LED, &ledStorage, sizeof(ledStorage));
 
       cmdRes = true;
     }
