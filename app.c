@@ -1142,6 +1142,19 @@ ApplicationInit(
   initWs2812();
   initqma6100p();
 
+  // Work around bugs in SDK 7.23.0/1 where the protocol file version is not written to NVM
+  // TODO: Remove in 7.23.2 where this is fixed
+  zpal_nvm_handle_t stack_handle = zpal_nvm_init(ZPAL_NVM_AREA_STACK);
+  if (stack_handle != NULL) {
+    size_t len = 0;
+    zpal_nvm_get_object_size(stack_handle, 0x0, &len);
+    if (len == 0) {
+      // The protocol file version is not written to NVM, so write it
+      uint32_t protocol_file_version = 0x05071701; // 7.23.1, format 5
+      zpal_nvm_write(stack_handle, 0x0, &protocol_file_version, sizeof(protocol_file_version));
+    }
+  }
+
   // Try to restore the user-defined color from NVM
   NabuCasaLedStorage_t ledStorage = {0};
   if (
@@ -1165,7 +1178,7 @@ ApplicationInit(
     set_color_buffer(white);
   }
 
-  // Try to restore settings from NVM
+  // Try to restore configuration settings from NVM
   bEnableTiltDetection = nc_config_get(NC_CFG_ENABLE_TILT_INDICATOR);
 
   /*************************************************************************************
