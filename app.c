@@ -917,25 +917,26 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         bTiltDetected = true;
       }
 
-      if (!bRequestGyroMeasurement) {
-        return;
-      }
-      bRequestGyroMeasurement = false;
+      // Send a gyro measurement whenever the user requests it
+      // or the orientation has just stabilized
+      if (bRequestGyroMeasurement || stable_gyro_readings == 7) {
+        bRequestGyroMeasurement = false;
 
-      uint8_t cmd[8];
-      uint8_t i=0;
-      cmd[i++] = NABU_CASA_GYRO_MEASURE;
-      cmd[i++] = gyro_reading.x >> 8;
-      cmd[i++] = gyro_reading.x & 0xFF;
-      cmd[i++] = gyro_reading.y >> 8;
-      cmd[i++] = gyro_reading.y & 0xFF;
-      cmd[i++] = gyro_reading.z >> 8;
-      cmd[i++] = gyro_reading.z & 0xFF;
-      RequestUnsolicited(
-        FUNC_ID_NABU_CASA,
-        cmd,
-        i
-      );
+        uint8_t cmd[8];
+        uint8_t i=0;
+        cmd[i++] = NABU_CASA_GYRO_MEASURE;
+        cmd[i++] = gyro_reading.x >> 8;
+        cmd[i++] = gyro_reading.x & 0xFF;
+        cmd[i++] = gyro_reading.y >> 8;
+        cmd[i++] = gyro_reading.y & 0xFF;
+        cmd[i++] = gyro_reading.z >> 8;
+        cmd[i++] = gyro_reading.z & 0xFF;
+        RequestUnsolicited(
+          FUNC_ID_NABU_CASA,
+          cmd,
+          i
+        );
+      }
       break;
     }
 
