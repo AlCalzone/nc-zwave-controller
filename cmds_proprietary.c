@@ -23,19 +23,24 @@ extern bool bRequestGyroMeasurement;
 extern bool bEnableTiltDetection;
 #endif
 
-bool nc_config_get(eNabuCasaConfigKey key) {
+bool nc_config_get(eNabuCasaConfigKey key)
+{
   NabuCasaConfigStorage_t cfg = CONFIG_STORAGE_DEFAULTS;
   ZAF_nvm_app_read(FILE_ID_NABUCASA_CONFIG, &cfg, sizeof(cfg));
   return (cfg.flags & (1 << key)) != 0;
 }
 
-void nc_config_set(eNabuCasaConfigKey key, bool value) {
+void nc_config_set(eNabuCasaConfigKey key, bool value)
+{
   NabuCasaConfigStorage_t cfg = CONFIG_STORAGE_DEFAULTS;
   ZAF_nvm_app_read(FILE_ID_NABUCASA_CONFIG, &cfg, sizeof(cfg));
 
-  if (value) {
+  if (value)
+  {
     cfg.flags |= (1 << key);
-  } else {
+  }
+  else
+  {
     cfg.flags &= ~(1 << key);
   }
 
@@ -196,41 +201,38 @@ void func_id_nabu_casa(uint8_t inputLength,
     // HOST->ZW (REQ): NABU_CASA_SYSTEM_INDICATION_SET | severity
     // ZW->HOST (RES): NABU_CASA_SYSTEM_INDICATION_SET | true
 
-    if (inputLength >= 2) {
+    if (inputLength >= 2)
+    {
       eNabuCasaSystemIndication severity = (eNabuCasaSystemIndication)pInputBuffer[1];
-      switch (severity) {
-        case NC_SYS_INDICATION_OFF:
-          ledEffectSystem = (LedEffect_t) {
-            .type = LED_EFFECT_NOT_SET
-          };
-          // Force-swap the current effect
-          trigger_led_effect_refresh();
+      switch (severity)
+      {
+      case NC_SYS_INDICATION_OFF:
+        ledEffectSystem = (LedEffect_t){
+            .type = LED_EFFECT_NOT_SET};
+        // Force-swap the current effect
+        trigger_led_effect_refresh();
 
-          cmdRes = true;
-          break;
-        case NC_SYS_INDICATION_WARN:
-          ledEffectSystem = (LedEffect_t) {
+        cmdRes = true;
+        break;
+      case NC_SYS_INDICATION_WARN:
+        ledEffectSystem = (LedEffect_t){
             .type = LED_EFFECT_SOLID,
             .effect.solid = {
-              .color = yellow,
-              .modified = true
-            }
-          };
-          cmdRes = true;
-          break;
-        case NC_SYS_INDICATION_ERROR:
-          ledEffectSystem = (LedEffect_t) {
+                .color = yellow,
+                .modified = true}};
+        cmdRes = true;
+        break;
+      case NC_SYS_INDICATION_ERROR:
+        ledEffectSystem = (LedEffect_t){
             .type = LED_EFFECT_SOLID,
             .effect.solid = {
-              .color = red,
-              .modified = true
-            }
-          };
-          cmdRes = true;
-          break;
-        default:
-          // Unsupported. Do nothing
-          break;
+                .color = red,
+                .modified = true}};
+        cmdRes = true;
+        break;
+      default:
+        // Unsupported. Do nothing
+        break;
       }
     }
 
@@ -256,39 +258,57 @@ void func_id_nabu_casa(uint8_t inputLength,
 
   case NABU_CASA_CONFIG_GET:
     // HOST->ZW (REQ): NABU_CASA_CONFIG_GET | key
-    // ZW->HOST (RES): NABU_CASA_CONFIG_GET | key | value
+    // ZW->HOST (RES): NABU_CASA_CONFIG_GET | key | size | value
 
-    if (inputLength >= 2) {
+    if (inputLength >= 2)
+    {
       eNabuCasaConfigKey key = (eNabuCasaConfigKey)pInputBuffer[1];
       bool value = nc_config_get(key);
       pOutputBuffer[i++] = key;
+      pOutputBuffer[i++] = 1;
       pOutputBuffer[i++] = value;
-    } else {
+    }
+    else
+    {
       // invalid command
       pOutputBuffer[i++] = 0xFF;
     }
     break;
 
   case NABU_CASA_CONFIG_SET:
-    // HOST->ZW (REQ): NABU_CASA_CONFIG_SET | key | value
+    // HOST->ZW (REQ): NABU_CASA_CONFIG_SET | key | size | value
     // ZW->HOST (RES): NABU_CASA_CONFIG_SET | success
 
-    if (inputLength >= 3) {
+    if (inputLength >= 4)
+    {
       eNabuCasaConfigKey key = (eNabuCasaConfigKey)pInputBuffer[1];
-      bool value = pInputBuffer[2] != 0;
-      switch (key) {
+      uint8_t size = pInputBuffer[2];
+      if (size > 0 && size <= 4 && inputLength >= 3 + size)
+      {
+        int32_t value = 0;
+        for (int j = 0; j < size; j++)
+        {
+          value |= (pInputBuffer[3 + j] << (j * 8));
+        }
+
+        switch (key)
+        {
         case NC_CFG_ENABLE_TILT_INDICATOR:
+        {
           // Save change in NVM
-          nc_config_set(key, value);
+          bool enable = (value != 0);
+          nc_config_set(key, enable);
           // and forward to application
-          bEnableTiltDetection = value;
+          bEnableTiltDetection = enable;
           trigger_led_effect_refresh();
 
           cmdRes = true;
           break;
+        }
         default:
           // Unsupported. Do nothing
           break;
+        }
       }
     }
 
