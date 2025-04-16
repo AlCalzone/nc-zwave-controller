@@ -7,6 +7,7 @@ on:
     branches:
       # This avoids having duplicate builds in non-forked PRs
       - "master"
+      - "sisdk-*"
     tags:
       # normal versions
       - "v[0-9]+.[0-9]+.[0-9]+"
