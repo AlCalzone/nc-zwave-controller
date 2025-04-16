@@ -35,6 +35,8 @@
 #include <ZW_controller_api.h>
 #endif
 
+#include "drivers/ws2812.h"
+
 /* Serial API version */
 #define SERIAL_API_VER 10
 
@@ -269,5 +271,35 @@ extern void ApplicationNodeUpdate(uint8_t bStatus, uint16_t nodeID, uint8_t *pCm
 #define BUF_SIZE_TX 168
 
 extern uint8_t compl_workbuf[BUF_SIZE_TX];
+
+void trigger_led_effect_refresh(void);
+
+typedef struct LedEffectSolid {
+  rgb_t color;
+  bool modified;
+} LedEffectSolid_t;
+
+typedef struct LedEffectFade {
+  rgb_t color;
+  uint8_t brightness;
+  uint8_t ticksPerStep;
+  uint8_t tickCounter;
+  bool increasing;
+  bool stopAtMax;
+} LedEffectFade_t;
+
+typedef enum {
+  LED_EFFECT_NOT_SET,
+  LED_EFFECT_SOLID,
+  LED_EFFECT_FADE
+} LedEffectType_t;
+
+typedef struct {
+  LedEffectType_t type;
+  union {
+    LedEffectSolid_t solid;
+    LedEffectFade_t fade;
+  } effect;
+} LedEffect_t;
 
 #endif /* _SERIALAPPL_H_ */
