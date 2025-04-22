@@ -21,7 +21,9 @@
 
 // <q USE_USER_APP_VERSION> false: Use Default Z-Wave version numbering, true: Use Application Version Configuration numbering
 // <i> Default: 0
-#define USE_USER_APP_VERSION  1
+// WARN: DO NOT set to 1! This breaks the built-in NVM migration mechanism etc.
+// Instead, refer to USER_APP_VERSION and USER_APP_REVISION in SERIALAPI_CAPABILITIES
+#define USE_USER_APP_VERSION  0 
 
 // </h>
 // <h> Application Version Configuration
@@ -36,7 +38,6 @@
 
 // <o USER_APP_PATCH> Application Patch Version <0..255:1> <f.d>
 // <i> Default: 0
-// NOTE: This is not exposed to applications! Probably shouldn't be used to distinguish firmwares.
 #define USER_APP_PATCH  0
 
 // </h>
