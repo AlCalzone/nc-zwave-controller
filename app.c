@@ -42,6 +42,7 @@
 #include "ZAF_PrintAppInfo.h"
 #endif
 #include "ZAF_AppName.h"
+#include <ZAF_nvm_app.h>
 
 #include <assert.h>
 
@@ -65,7 +66,24 @@ static TaskHandle_t m_xTaskHandleBackgroundHw   = NULL;
 static StaticTask_t BackgroundHwTaskBuffer;
 static uint8_t BackgroundHwStackBuffer[HW_TASK_STACK_SIZE];
 
+// Gyro measurements
 bool bRequestGyroMeasurement = false;
+gyro_reading_t last_gyro_reading = {0};
+int stable_gyro_readings = 0;
+
+bool bAwaitingConnection = false;
+// Whether incorrect tilt was detected and should be indicated
+bool bTiltDetected = false;
+bool bEnableTiltDetection = true;
+
+// Default LED effect when no other effect is set
+LedEffect_t ledEffectDefault = {0};
+// LED state set by the user
+LedEffect_t ledEffectUser = {0};
+// Separate high priority LED state for system indication
+LedEffect_t ledEffectSystem = {0};
+// LED state to indicate incorrect tilt
+LedEffect_t ledEffectTilt = {0};
 
 static void ApplicationInitSW(void);
 static void ApplicationTask(SApplicationHandles *pAppHandles);
@@ -528,6 +546,11 @@ ApplicationTask(SApplicationHandles* pAppHandles)
 
 static void SerialAPICommandHandler(void)
 {
+  if (bAwaitingConnection) {
+    bAwaitingConnection = false;
+    zaf_event_distributor_enqueue_proprietary_app_event(EVENT_APP_CONNECTED, NULL);
+  }
+
   const bool handler_invoked = invoke_cmd_handler(serial_frame);
   if (!handler_invoked)
   {
@@ -784,7 +807,29 @@ ZCB_WakeupTimeout(__attribute__((unused)) SSwTimer *pTimer)
   DPRINT("ZCB_WakeupTimeout\n");
 }
 
+/* Returns the current effect that should be used for the LED */
+LedEffect_t*
+get_current_led_effect(void) {
+  if (ledEffectSystem.type != LED_EFFECT_NOT_SET) {
+    return &ledEffectSystem;
+  } else if (bEnableTiltDetection && bTiltDetected) {
+    return &ledEffectTilt;
+  } else if (ledEffectUser.type != LED_EFFECT_NOT_SET) {
+    return &ledEffectUser;
+  } else {
+    return &ledEffectDefault;
+  }
+}
 
+void
+trigger_led_effect_refresh(void) {
+  if (ledEffectUser.type == LED_EFFECT_SOLID) {
+    ledEffectUser.effect.solid.modified = true;
+  }
+  if (ledEffectDefault.type == LED_EFFECT_SOLID) {
+    ledEffectDefault.effect.solid.modified = true;
+  }
+}
 
 void
 zaf_event_distributor_app_proprietary(event_nc_t *event)
@@ -792,20 +837,89 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
   // Handles NC-specific proprietary events
   EVENT_APP event_nc = (EVENT_APP) event->event;
   switch (event_nc) {
-    case EVENT_APP_USERTASK_READY:
-      // Indicate that the firmware is ready by enabling the LED at low power
-      rgb_t color = {4, 0, 0};
-      set_color_buffer(color);
+    case EVENT_APP_USERTASK_READY: {
+      // Fade slowly to white
+      LedEffectFade_t fade = {
+        .color = white,
+        .brightness = 0xff,
+        .increasing = false,
+        .ticksPerStep = 2,
+        .tickCounter = 0
+      };
+      ledEffectDefault = (LedEffect_t) {
+        .type = LED_EFFECT_FADE,
+        .effect.fade = fade
+      };
+      bAwaitingConnection = true;
       break;
+    }
 
-    case EVENT_APP_USERTASK_GYRO_MEASUREMENT:
+    case EVENT_APP_CONNECTED: {
+      if (ledEffectDefault.type == LED_EFFECT_FADE) {
+        // Stop the animation to indicate that we're connected
+        ledEffectDefault.effect.fade.stopAtMax = true;
+      } else {
+        // If we were not in fade mode, set the color to white
+        LedEffectSolid_t solid = {
+          .color = white,
+          .modified = true
+        };
+        ledEffectDefault = (LedEffect_t) {
+          .type = LED_EFFECT_SOLID,
+          .effect.solid = solid
+        };
+      }
+      break;
+    }
+
+    case EVENT_APP_USERTASK_GYRO_MEASUREMENT: {
+      // A gyro measurement was requested
+      gyro_reading_t gyro_reading = event->payload->gyro_reading;
+
+      // Debounce the readings
+      if (last_gyro_reading.x == 0 && last_gyro_reading.y == 0 && last_gyro_reading.z == 0) {
+        last_gyro_reading = gyro_reading;
+        return;
+      } else if (abs(gyro_reading.x - last_gyro_reading.x) < 25 &&
+                 abs(gyro_reading.y - last_gyro_reading.y) < 25 &&
+                 abs(gyro_reading.z - last_gyro_reading.z) < 25) {
+        stable_gyro_readings++;
+      } else {
+        stable_gyro_readings = 0;
+      }
+      last_gyro_reading = gyro_reading;
+
+      if (stable_gyro_readings < 3) {
+        // Not enough stable readings, ignore this one
+        return;
+      }
+
+      // Indicate bad orientation (more than 20° from vertical) in calibration mode
+      if (gyro_reading.z < -960 || gyro_reading.z > 960) {
+        if (bTiltDetected) {
+          // Mark the user LED effect as modified, so it gets used again
+          trigger_led_effect_refresh();
+        }
+        bTiltDetected = false;
+      } else if (!bTiltDetected) {
+        LedEffectFade_t fade = {
+          .color = red,
+          .brightness = 0xff,
+          .increasing = false,
+          .ticksPerStep = 1,
+          .tickCounter = 0
+        };
+        ledEffectTilt = (LedEffect_t) {
+          .type = LED_EFFECT_FADE,
+          .effect.fade = fade
+        };
+        bTiltDetected = true;
+      }
+
       if (!bRequestGyroMeasurement) {
         return;
       }
       bRequestGyroMeasurement = false;
-
-      // A gyro measurement was requested
-      gyro_reading_t gyro_reading = event->payload->gyro_reading;
 
       uint8_t cmd[8];
       uint8_t i=0;
@@ -822,11 +936,81 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         i
       );
       break;
+    }
+
+    case EVENT_APP_USERTASK_TICK_LED: {
+      LedEffect_t* ledEffect = get_current_led_effect();
+
+      switch (ledEffect->type) {
+        case LED_EFFECT_SOLID: {
+          // For solid LED effect, set the color once
+          if (ledEffect->effect.solid.modified) {
+            ledEffect->effect.solid.modified = false;
+            set_color_buffer(ledEffect->effect.solid.color);
+          }
+          break;
+        }
+
+        case LED_EFFECT_FADE: {
+          // For fading, change the brightness every N ticks,
+          // and update the color
+          LedEffectFade_t fade = ledEffect->effect.fade;
+
+          if (fade.brightness > 0xe0 && fade.stopAtMax) {
+            // Switch to solid mode
+            LedEffectSolid_t solid = {
+              .color = fade.color,
+              .modified = true
+            };
+            *ledEffect = (LedEffect_t) {
+              .type = LED_EFFECT_SOLID,
+              .effect.solid = solid
+            };
+            break;
+          }
+
+          if (fade.tickCounter == 0) {
+            if (fade.increasing) {
+              fade.brightness++;
+              if (fade.brightness == 0xff) {
+                fade.increasing = false;
+              }
+            } else {
+              fade.brightness--;
+              if (fade.brightness == 0) {
+                fade.increasing = true;
+              }
+            }
+
+            uint16_t r = ((uint16_t) fade.color.R) * ((uint16_t) fade.brightness) / 0xff;
+            uint16_t g = ((uint16_t) fade.color.G) * ((uint16_t) fade.brightness) / 0xff;
+            uint16_t b = ((uint16_t) fade.color.B) * ((uint16_t) fade.brightness) / 0xff;
+
+            rgb_t color = {
+              (uint8_t) g,
+              (uint8_t) r,
+              (uint8_t) b
+            };
+
+            set_color_buffer(color);
+          }
+
+          fade.tickCounter = (fade.tickCounter + 1) % fade.ticksPerStep;
+          ledEffect->effect.fade = fade;
+          break;
+        }
+
+        default:
+          // Nothing to do
+          break;
+      } // switch (ledEffect->type)
+      break;
+    }
 
     default:
       // Nothing to do
       break;
-  }
+  } // switch (event_nc)
 }
 
 /*==============================   ApplicationInitSW   ======================
@@ -943,6 +1127,32 @@ ApplicationInit(
   // Initialize NC-specific hardware
   initWs2812();
   initqma6100p();
+
+  // Try to restore the user-defined color from NVM
+  NabuCasaLedStorage_t ledStorage = {0};
+  if (
+    ZPAL_STATUS_OK == ZAF_nvm_app_read(FILE_ID_NABUCASA_LED, &ledStorage, sizeof(ledStorage))
+    && ledStorage.valid
+  ) {
+    rgb_t color = {
+      .G = ledStorage.g,
+      .R = ledStorage.r,
+      .B = ledStorage.b
+    };
+    ledEffectUser = (LedEffect_t) {
+      .type = LED_EFFECT_SOLID,
+      .effect.solid = {
+        .color = color,
+        .modified = true
+      }
+    };
+    set_color_buffer(color);
+  } else {
+    set_color_buffer(white);
+  }
+
+  // Try to restore settings from NVM
+  bEnableTiltDetection = nc_config_get(NC_CFG_ENABLE_TILT_INDICATOR);
 
   /*************************************************************************************
    * CREATE USER TASKS  -  ZW_ApplicationRegisterTask() and ZW_UserTask_CreateTask()
