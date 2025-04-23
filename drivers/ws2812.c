@@ -29,11 +29,14 @@ LDMA_TransferCfg_t ldmaTXConfig;
 #define USART_NUMBER_OF_BITS     (NUMBER_OF_COLOR_BITS * 3)
 
 // How big the USART buffer should be,
-// the first 15 bytes should be empty to provide a 50uS reset signal
-#define USART_BUFFER_SIZE_BYTES  ((USART_NUMBER_OF_BITS / 8) + 15)
+// the first 90 bytes should be empty to provide a >280uS reset signal
+// Although the data sheet specifies that the reset signal must come
+// after the data, it only works if we put it at the start of the buffer.
+#define RESET_SIGNAL_BYTES       90
+#define USART_BUFFER_SIZE_BYTES  ((USART_NUMBER_OF_BITS / 8) + RESET_SIGNAL_BYTES)
 
 // Output buffer for USART
-static uint8_t USART_tx_buffer[USART_BUFFER_SIZE_BYTES];
+static uint8_t USART_tx_buffer[USART_BUFFER_SIZE_BYTES] = {0};
 static rgb_t rgb_color_buffer;
 
 // The WS2812 protocol interprets a signal that is 2/3 high 1/3 low as 1
@@ -43,11 +46,11 @@ static rgb_t rgb_color_buffer;
 // The bytes are interpreted LSB first, so the bit order is opposite from what the WS2812 protocol would suggest.
 // Therefore, the full 3-byte sequence for a color byte is 0x10 x10x 10x1 0x10 x10x 10x1
 // which is interpreted in reverse order:
-#define FIRST_BYTE_DEFAULT  0b00100100;
+#define FIRST_BYTE_DEFAULT  0b10010010;
 //                     bits:   7  6  5
-#define SECOND_BYTE_DEFAULT 0b10010010;
+#define SECOND_BYTE_DEFAULT 0b01001001;
 //                     bits:    4  3
-#define THIRD_BYTE_DEFAULT  0b01001001;
+#define THIRD_BYTE_DEFAULT  0b00100100;
 //                     bits:  2  1  0
 
 #define LED_INTENSITY 100 // defines the intensity of the LEDs for the test
@@ -95,7 +98,6 @@ static void initEUSART1(void)
   EUSART_SpiInit_TypeDef init = EUSART_SPI_MASTER_INIT_DEFAULT_HF;
 
   init.bitRate = REQUIRED_USART_FREQUENCY;
-  init.loopbackEnable = eusartLoopbackEnable;
   init.advancedSettings = &adv;   // Advanced settings structure
 
   /*
@@ -163,7 +165,7 @@ void set_color_buffer(rgb_t input_color)
 
   // See above for a more detailed description of the protocol and bit order
   uint32_t usart_buffer_index = 0;
-  while (usart_buffer_index < USART_BUFFER_SIZE_BYTES) {
+  while (usart_buffer_index < USART_BUFFER_SIZE_BYTES - RESET_SIGNAL_BYTES) {
     // FIRST BYTE
     // Isolate bit 7 and shift to position 6
     uint8_t bit_7 = (uint8_t)((*input_color_byte & 0x80) >> 1);
@@ -172,7 +174,7 @@ void set_color_buffer(rgb_t input_color)
     // Isolate bit 5 and shift to position 0
     uint8_t bit_5 = (uint8_t)((*input_color_byte & 0x20) >> 5);
     // Load byte into the TX buffer
-    USART_tx_buffer[usart_buffer_index] = bit_7 | bit_6 | bit_5 | FIRST_BYTE_DEFAULT;
+    USART_tx_buffer[usart_buffer_index + RESET_SIGNAL_BYTES] = bit_7 | bit_6 | bit_5 | FIRST_BYTE_DEFAULT;
     usart_buffer_index++;  // Increment USART_tx_buffer pointer
 
     // SECOND BYTE
@@ -181,7 +183,7 @@ void set_color_buffer(rgb_t input_color)
     // Isolate bit 3 and shift to position 2
     uint8_t bit_3 = (uint8_t)((*input_color_byte & 0x08) >> 1);
     // Load byte into the TX buffer
-    USART_tx_buffer[usart_buffer_index] = bit_4 | bit_3 | SECOND_BYTE_DEFAULT;
+    USART_tx_buffer[usart_buffer_index + RESET_SIGNAL_BYTES] = bit_4 | bit_3 | SECOND_BYTE_DEFAULT;
     usart_buffer_index++; // Increment USART_tx_buffer pointer
 
     // THIRD BYTE
@@ -192,12 +194,11 @@ void set_color_buffer(rgb_t input_color)
     // Isolate bit 0 and shift to position 1
     uint8_t bit_0 = (uint8_t)((*input_color_byte & 0x01) << 1);
     // Load byte into the TX buffer
-    USART_tx_buffer[usart_buffer_index] = bit_2 | bit_1 | bit_0 | THIRD_BYTE_DEFAULT;
+    USART_tx_buffer[usart_buffer_index + RESET_SIGNAL_BYTES] = bit_2 | bit_1 | bit_0 | THIRD_BYTE_DEFAULT;
     usart_buffer_index++; // Increment USART_tx_buffer pointer
     
     input_color_byte++; // move to the next color byte
   }
 
-  USART_tx_buffer[USART_BUFFER_SIZE_BYTES - 1] = ~USART_tx_buffer[USART_BUFFER_SIZE_BYTES - 1] & 0xfe;
   LDMA_StartTransfer(TX_LDMA_CHANNEL, &ldmaTXConfig, &ldmaTXDescriptor);
 }
