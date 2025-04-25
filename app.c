@@ -76,6 +76,12 @@ bool bAwaitingConnection = false;
 bool bTiltDetected = false;
 bool bEnableTiltDetection = true;
 
+// Define thresholds and deadzone for tilt detection to compensate for noise/drift
+// 20° corresponds to approx. 960
+#define TILT_THRESHOLD_UPPER  970
+#define TILT_THRESHOLD_LOWER  935
+#define GYRO_STABLE_THRESHOLD 3
+
 // Default LED effect when no other effect is set
 LedEffect_t ledEffectDefault = {0};
 // LED state set by the user
@@ -884,24 +890,30 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
                  abs(gyro_reading.y - last_gyro_reading.y) < 25 &&
                  abs(gyro_reading.z - last_gyro_reading.z) < 25) {
         stable_gyro_readings++;
+        // Prevent overflows
+        if (stable_gyro_readings > 0xffff) {
+          stable_gyro_readings = GYRO_STABLE_THRESHOLD;
+        }
       } else {
         stable_gyro_readings = 0;
       }
       last_gyro_reading = gyro_reading;
 
-      if (stable_gyro_readings < 3) {
+      if (stable_gyro_readings < GYRO_STABLE_THRESHOLD) {
         // Not enough stable readings, ignore this one
         return;
       }
 
       // Indicate bad orientation (more than 20° from vertical) in calibration mode
-      if (gyro_reading.z < -960 || gyro_reading.z > 960) {
-        if (bTiltDetected) {
-          // Mark the user LED effect as modified, so it gets used again
-          trigger_led_effect_refresh();
-        }
+      if (bTiltDetected && (gyro_reading.z < -TILT_THRESHOLD_UPPER || gyro_reading.z > TILT_THRESHOLD_UPPER)) {
+        // Tilt no longer detected when crossing the upper threshold
         bTiltDetected = false;
-      } else if (!bTiltDetected) {
+        // Mark the user LED effect as modified, so it gets used again
+        trigger_led_effect_refresh();
+      } else if (!bTiltDetected && gyro_reading.z > -TILT_THRESHOLD_LOWER && gyro_reading.z < TILT_THRESHOLD_LOWER) {
+        // Tilt no longer detected when crossing the lower threshold
+        bTiltDetected = true;
+        // Indicate incorrect tilt using the LED
         LedEffectFade_t fade = {
           .color = red,
           .brightness = 0xff,
@@ -913,7 +925,6 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
           .type = LED_EFFECT_FADE,
           .effect.fade = fade
         };
-        bTiltDetected = true;
       }
 
       if (!bRequestGyroMeasurement) {
