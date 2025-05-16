@@ -36,7 +36,7 @@ typedef struct rgb_t{
 }rgb_t;
 
 static const rgb_t red = { 0x00, 0xFF, 0x00 };
-static const rgb_t yellow = { 0xFF, 0xFF, 0x00 };
+static const rgb_t yellow = { 0x80, 0xFF, 0x00 };
 static const rgb_t white = { 0xE3, 0xFF, 0xB5 };
 
 rgb_t get_color_buffer();

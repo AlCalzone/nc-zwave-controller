@@ -916,7 +916,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         bTiltDetected = true;
         // Indicate incorrect tilt using the LED
         LedEffectFade_t fade = {
-          .color = red,
+          .color = yellow,
           .brightness = 0xff,
           .increasing = false,
           .ticksPerStep = 1,
