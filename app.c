@@ -848,7 +848,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
       // Fade slowly to white
       LedEffectFade_t fade = {
         .color = white,
-        .brightness = 0xff,
+        .brightness = FADE_MAX_BRIGHTNESS,
         .increasing = false,
         .ticksPerStep = 2,
         .tickCounter = 0
@@ -917,7 +917,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         // Indicate incorrect tilt using the LED
         LedEffectFade_t fade = {
           .color = yellow,
-          .brightness = 0xff,
+          .brightness = FADE_MAX_BRIGHTNESS,
           .increasing = false,
           .ticksPerStep = 1,
           .tickCounter = 0
@@ -968,7 +968,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
           // and update the color
           LedEffectFade_t fade = ledEffect->effect.fade;
 
-          if (fade.brightness > 0xe0 && fade.stopAtMax) {
+          if (fade.brightness > FADE_BRIGHT_THRESHOLD && fade.stopAtMax) {
             // Switch to solid mode
             LedEffectSolid_t solid = {
               .color = fade.color,
@@ -984,19 +984,19 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
           if (fade.tickCounter == 0) {
             if (fade.increasing) {
               fade.brightness++;
-              if (fade.brightness == 0xff) {
+              if (fade.brightness == FADE_MAX_BRIGHTNESS) {
                 fade.increasing = false;
               }
             } else {
               fade.brightness--;
-              if (fade.brightness == 0) {
+              if (fade.brightness == FADE_MIN_BRIGHTNESS) {
                 fade.increasing = true;
               }
             }
 
-            uint16_t r = ((uint16_t) fade.color.R) * ((uint16_t) fade.brightness) / 0xff;
-            uint16_t g = ((uint16_t) fade.color.G) * ((uint16_t) fade.brightness) / 0xff;
-            uint16_t b = ((uint16_t) fade.color.B) * ((uint16_t) fade.brightness) / 0xff;
+            uint16_t r = ((uint16_t) fade.color.R) * ((uint16_t) fade.brightness) / FADE_MAX_BRIGHTNESS;
+            uint16_t g = ((uint16_t) fade.color.G) * ((uint16_t) fade.brightness) / FADE_MAX_BRIGHTNESS;
+            uint16_t b = ((uint16_t) fade.color.B) * ((uint16_t) fade.brightness) / FADE_MAX_BRIGHTNESS;
 
             rgb_t color = {
               (uint8_t) g,
