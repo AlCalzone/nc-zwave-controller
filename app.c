@@ -7,6 +7,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#define _USE_MATH_DEFINES
+#include <math.h>
 #include <assert.h>
 #include "SyncEvent.h"
 #ifdef ZW_CONTROLLER
@@ -78,9 +80,8 @@ bool bTiltDetected = false;
 bool bEnableTiltDetection = true;
 
 // Define thresholds and deadzone for tilt detection to compensate for noise/drift
-// 20° corresponds to approx. 960
-#define TILT_THRESHOLD_UPPER  970
-#define TILT_THRESHOLD_LOWER  935
+#define TILT_THRESHOLD_LOWER  12.0f
+#define TILT_THRESHOLD_UPPER  16.0f
 #define GYRO_STABLE_THRESHOLD 3
 
 // Default LED effect when no other effect is set
@@ -905,13 +906,26 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         return;
       }
 
+      // Compute the angle from vertical (0,0,-1)
+      float gyro_magnitude = sqrtf(
+        gyro_reading.x * gyro_reading.x +
+        gyro_reading.y * gyro_reading.y +
+        gyro_reading.z * gyro_reading.z
+      );
+      // horizontal components of the reference vector are 0
+      float dot_product = (float) -gyro_reading.z;
+      float angle = acos(dot_product / gyro_magnitude) * 180.0f / M_PI; // Convert to degrees
+
+      // The angle will be between 0 and 180°, accept everything that's close
+      // enough to those values
+
       // Indicate bad orientation (more than 20° from vertical) in calibration mode
-      if (bTiltDetected && (gyro_reading.z < -TILT_THRESHOLD_UPPER || gyro_reading.z > TILT_THRESHOLD_UPPER)) {
+      if (bTiltDetected && (angle < TILT_THRESHOLD_LOWER || angle > (180.0f - TILT_THRESHOLD_LOWER))) {
         // Tilt no longer detected when crossing the upper threshold
         bTiltDetected = false;
         // Mark the user LED effect as modified, so it gets used again
         trigger_led_effect_refresh();
-      } else if (!bTiltDetected && gyro_reading.z > -TILT_THRESHOLD_LOWER && gyro_reading.z < TILT_THRESHOLD_LOWER) {
+      } else if (!bTiltDetected && angle > TILT_THRESHOLD_UPPER && angle < (180.0f - TILT_THRESHOLD_UPPER)) {
         // Tilt no longer detected when crossing the lower threshold
         bTiltDetected = true;
         // Indicate incorrect tilt using the LED
