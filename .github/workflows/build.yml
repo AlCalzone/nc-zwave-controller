@@ -92,3 +92,10 @@ jobs:
         with:
           name: zwa2_controller.map
           path: artifact/zwa2_controller.map
+      
+      - name: Debug Build failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slc_cli_log
+          path: /opt/slc_cli/bin/slc-cli/configuration/
