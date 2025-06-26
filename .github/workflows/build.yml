@@ -33,6 +33,12 @@ jobs:
         with:
           node-version: lts/*
 
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Download Simplicity SDK
         run: |
           curl -o simplicity_sdk_2024.12.1.zip -L https://github.com/SiliconLabs/simplicity_sdk/releases/download/v2024.12.1-0/simplicity-sdk.zip \
@@ -92,3 +98,10 @@ jobs:
         with:
           name: zwa2_controller.map
           path: artifact/zwa2_controller.map
+      
+      - name: Debug Build failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slc_cli_log
+          path: /opt/slc_cli/bin/slc-cli/configuration/*.log
