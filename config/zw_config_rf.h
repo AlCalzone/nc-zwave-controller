@@ -22,12 +22,12 @@
 // <o APP_MAX_TX_POWER_LR> The maximum allowed Tx power in deci dBm for Z-Wave Long Range network <-200..200:1> <f.d>
 // <i> The maximum allowed Tx power in deci dBm for Z-Wave Long Range network
 // <i> Default: 200
-#define APP_MAX_TX_POWER_LR  200
+#define APP_MAX_TX_POWER_LR  140
 
 // <o APP_MAX_TX_POWER> The maximum allowed Tx power in deci dBm for Z-Wave network <-200..200:1> <f.d>
 // <i> The maximum allowed Tx power in deci dBm for Z-Wave network
 // <i> Default: 200
-#define APP_MAX_TX_POWER  200
+#define APP_MAX_TX_POWER  130
 
 // <o APP_MEASURED_0DBM_TX_POWER> The deci dBmoutput measured at a PA setting of 0dBm <-50..50:1> <f.d>
 // <i> The deci dBm output measured at a PA setting of 0dBm
