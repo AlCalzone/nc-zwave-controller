@@ -39,16 +39,6 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Determine firmware version
-        id: version
-        run: |
-          VERSION=$(node tools/extract_version.mjs)
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          COMMIT=$(git rev-parse --short ${{ github.sha }})
-          echo "COMMIT=${COMMIT}" >> $GITHUB_ENV
-          SUFFIX="$VERSION_$COMMIT"
-          echo "SUFFIX=${SUFFIX}" >> $GITHUB_ENV
-
       - name: Download Simplicity SDK
         run: |
           curl -o simplicity_sdk_2024.12.1.zip -L https://github.com/SiliconLabs/simplicity_sdk/releases/download/v2024.12.1-0/simplicity-sdk.zip \
@@ -84,6 +74,16 @@ jobs:
           SDK: /opt/simplicity_sdk
           SLC: /opt/slc_cli/slc
           COMMANDER: /opt/commander/commander
+
+      - name: Determine firmware version
+        id: version
+        run: |
+          VERSION=$(node tools/extract_version.mjs)
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          COMMIT=$(git rev-parse --short ${{ github.sha }})
+          echo "COMMIT=${COMMIT}" >> $GITHUB_ENV
+          SUFFIX="$VERSION_$COMMIT"
+          echo "SUFFIX=${SUFFIX}" >> $GITHUB_ENV
 
       - name: Copy HEX file
         run: cp build/release/nc_controller_ncp.hex artifact/zwa2_controller.hex
