@@ -39,6 +39,16 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Determine firmware version
+        id: version
+        run: |
+          VERSION=$(node tools/extract_version.mjs)
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          COMMIT=$(git rev-parse --short ${{ github.sha }})
+          echo "COMMIT=${COMMIT}" >> $GITHUB_ENV
+          SUFFIX="$VERSION_$COMMIT"
+          echo "SUFFIX=${SUFFIX}" >> $GITHUB_ENV
+
       - name: Download Simplicity SDK
         run: |
           curl -o simplicity_sdk_2024.12.1.zip -L https://github.com/SiliconLabs/simplicity_sdk/releases/download/v2024.12.1-0/simplicity-sdk.zip \
@@ -78,50 +88,52 @@ jobs:
       - name: Copy HEX file
         run: cp build/release/nc_controller_ncp.hex artifact/zwa2_controller.hex
 
-      - name: Determine firmware version
-        id: version
-        run: |
-          echo "VERSION=$(node tools/extract_version.mjs)" >> $GITHUB_ENV
-          echo "COMMIT=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_ENV
-
       - name: Compute checksums for HEX files
         run: |
           sha256sum artifact/zwa2_controller.hex | cut -d" " -f1 > artifact/zwa2_controller.hex.sha256
           md5sum artifact/zwa2_controller.hex | cut -d" " -f1 > artifact/zwa2_controller.hex.md5
 
+      - name: Prepare files for upload
+        run: |
+          mkdir -p upload
+          cp artifact/zwa2_controller.gbl upload/zwa2_controller_${{ env.SUFFIX }}.gbl
+          echo "GBL=zwa2_controller_${{ env.SUFFIX }}.gbl" >> $GITHUB_ENV
+          cp artifact/zwa2_controller.hex upload/zwa2_controller_${{ env.SUFFIX }}.hex
+          echo "HEX=zwa2_controller_${{ env.SUFFIX }}.hex" >> $GITHUB_ENV
+          cp artifact/zwa2_controller.hex.sha256 upload/zwa2_controller_${{ env.SUFFIX }}.hex.sha256
+          echo "HEX_SHA256=zwa2_controller_${{ env.SUFFIX }}.hex.sha256" >> $GITHUB_ENV
+          cp artifact/zwa2_controller.hex.md5 upload/zwa2_controller_${{ env.SUFFIX }}.hex.md5
+          echo "HEX_MD5=zwa2_controller_${{ env.SUFFIX }}.hex.md5" >> $GITHUB_ENV
+
       - name: Upload GBL
         uses: actions/upload-artifact@v4
         with:
-          name: zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.gbl
-          path: artifact/zwa2_controller.gbl
+          name: ${{ env.GBL }}
+          path: upload/${{ env.GBL }}
 
       - name: Upload HEX
         uses: actions/upload-artifact@v4
         with:
-          name: zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.hex
-          path: artifact/zwa2_controller.hex
+          name: ${{ env.HEX }}
+          path: upload/${{ env.HEX }}
 
       - name: Upload HEX SHAsum
         uses: actions/upload-artifact@v4
         with:
-          name: zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.hex.sha256
-          path: artifact/zwa2_controller.hex.sha256
+          name: ${{ env.HEX_SHA256 }}
+          path: upload/${{ env.HEX_SHA256 }}
 
       - name: Upload HEX MD5sum
         uses: actions/upload-artifact@v4
         with:
-          name: zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.hex.md5
-          path: artifact/zwa2_controller.hex.md5
+          name: ${{ env.HEX_MD5 }}
+          path: upload/${{ env.HEX_MD5 }}
 
       - name: Upload firmware package
         uses: actions/upload-artifact@v4
         with:
-          name: zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.zip
-          path: |
-            artifact/zwa2_controller.gbl
-            artifact/zwa2_controller.hex
-            artifact/zwa2_controller.hex.sha256
-            artifact/zwa2_controller.hex.md5
+          name: zwa2_controller_firmware_package_${{ env.SUFFIX }}
+          path: upload/*.*
 
       - name: Debug Build failures
         if: failure()
