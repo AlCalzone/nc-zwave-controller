@@ -75,30 +75,54 @@ jobs:
           SLC: /opt/slc_cli/slc
           COMMANDER: /opt/commander/commander
 
+      - name: Copy HEX file
+        run: cp build/release/nc_controller_ncp.hex artifact/zwa2_controller.hex
+
+      - name: Determine firmware version
+        id: version
+        run: |
+          echo "VERSION=$(node tools/extract_version.mjs)" >> $GITHUB_ENV
+          echo "COMMIT=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_ENV
+
+      - name: Compute checksums for HEX files
+        run: |
+          sha256sum artifact/zwa2_controller.hex | cut -d" " -f1 > artifact/zwa2_controller.hex.sha256
+          md5sum artifact/zwa2_controller.hex | cut -d" " -f1 > artifact/zwa2_controller.hex.md5
+
       - name: Upload GBL
         uses: actions/upload-artifact@v4
         with:
           name: zwa2_controller.gbl
-          path: artifact/zwa2_controller.gbl
-
-      - name: Copy HEX file
-        run: cp build/release/nc_controller_ncp.hex artifact/zwa2_controller.hex
+          path: artifact/zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.gbl
 
       - name: Upload HEX
         uses: actions/upload-artifact@v4
         with:
           name: zwa2_controller.hex
-          path: artifact/zwa2_controller.hex
+          path: artifact/zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.hex
 
-      - name: Copy MAP file
-        run: cp build/release/nc_controller_ncp.map artifact/zwa2_controller.map
-
-      - name: Upload MAP
+      - name: Upload HEX SHAsum
         uses: actions/upload-artifact@v4
         with:
-          name: zwa2_controller.map
-          path: artifact/zwa2_controller.map
-      
+          name: zwa2_controller.hex.sha256
+          path: artifact/zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.hex.sha256
+
+      - name: Upload HEX MD5sum
+        uses: actions/upload-artifact@v4
+        with:
+          name: zwa2_controller.hex.md5
+          path: artifact/zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.hex.md5
+
+      - name: Upload firmware package
+        uses: actions/upload-artifact@v4
+        with:
+          name: zwa2_controller_${{ env.VERSION }}_${{ env.COMMIT }}.zip
+          path: |
+            artifact/zwa2_controller.gbl
+            artifact/zwa2_controller.hex
+            artifact/zwa2_controller.hex.sha256
+            artifact/zwa2_controller.hex.md5
+
       - name: Debug Build failures
         if: failure()
         uses: actions/upload-artifact@v4
