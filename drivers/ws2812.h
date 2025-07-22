@@ -39,6 +39,9 @@ typedef struct rgb_t{
 static const rgb_t red = { 0x00, 0xFF, 0x00 };
 static const rgb_t yellow = { 0x80, 0xFF, 0x00 };
 static const rgb_t cold_white = { 0xFF, 0xFF, 0xFF };
+// black is essentially off. It does not shine through the light guide,
+// but we can see that the board is powered on.
+static const rgb_t black = { 0x02, 0x00, 0x00 };
 
 rgb_t get_color_buffer();
 void set_color_buffer(rgb_t input_color);

@@ -109,8 +109,8 @@ void func_id_nabu_casa(uint8_t inputLength,
     rgb_t led_color = get_color_buffer();
 
     // Ignore actual color values, report cold white or off
-    bool state = led_color.R > 0 || led_color.G > 0 || led_color.B > 0;
-    rgb_t color = state ? cold_white : (rgb_t){0, 0, 0};
+    bool state = led_color.R > black.R || led_color.G > black.G || led_color.B > black.B;
+    rgb_t color = state ? cold_white : black;
 
     pOutputBuffer[i++] = color.R;
     pOutputBuffer[i++] = color.G;
@@ -130,8 +130,8 @@ void func_id_nabu_casa(uint8_t inputLength,
       // rgb_t color = {g, r, b};
 
       // Ignore actual color values, use cold white or off
-      bool state = r > 0 || g > 0 || b > 0;
-      rgb_t color = state ? cold_white : (rgb_t){0, 0, 0};
+      bool state = r > black.R || g > black.G || b > black.B;
+      rgb_t color = state ? cold_white : black;
       LedEffectSolid_t solid = {
         .color = color,
         .modified = true};
@@ -231,7 +231,7 @@ void func_id_nabu_casa(uint8_t inputLength,
 
     // Get the current state of the LED
     rgb_t led_color = get_color_buffer();
-    if (led_color.R != 0 || led_color.G != 0 || led_color.B != 0) {
+    if (led_color.R > black.R || led_color.G > black.G || led_color.B > black.B) {
       pOutputBuffer[i++] = true; // LED is on
     } else {
       pOutputBuffer[i++] = false; // LED is off
@@ -248,7 +248,7 @@ void func_id_nabu_casa(uint8_t inputLength,
     {
       // Set solid color as the LED effect
       bool state = pInputBuffer[1] != 0;
-      rgb_t color = state ? cold_white : (rgb_t){0, 0, 0};
+      rgb_t color = state ? cold_white : black;
       LedEffectSolid_t solid = {
         .color = color,
         .modified = true};

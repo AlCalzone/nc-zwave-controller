@@ -853,8 +853,8 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
       // Fade slowly to white
       LedEffectFade_t fade = {
         .color = cold_white,
-        .brightness = FADE_MAX_BRIGHTNESS,
-        .increasing = false,
+        .brightness = FADE_MIN_BRIGHTNESS,
+        .increasing = true,
         .ticksPerStep = 2,
         .stepSize = 1,
         .tickCounter = 0
@@ -870,11 +870,11 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
     case EVENT_APP_CONNECTED: {
       if (ledEffectDefault.type == LED_EFFECT_FADE) {
         // Stop the animation to indicate that we're connected
-        ledEffectDefault.effect.fade.stopAtMax = true;
+        ledEffectDefault.effect.fade.stopAtMin = true;
       } else {
-        // If we were not in fade mode, set the color to white
+        // If we were not in fade mode, set the color to black
         LedEffectSolid_t solid = {
-          .color = cold_white,
+          .color = black,
           .modified = true
         };
         ledEffectDefault = (LedEffect_t) {
@@ -990,10 +990,10 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
           // and update the color
           LedEffectFade_t fade = ledEffect->effect.fade;
 
-          if (fade.brightness > FADE_BRIGHT_THRESHOLD && fade.stopAtMax) {
+          if (fade.brightness <= FADE_DIM_THRESHOLD && fade.stopAtMin) {
             // Switch to solid mode
             LedEffectSolid_t solid = {
-              .color = fade.color,
+              .color = black,
               .modified = true
             };
             *ledEffect = (LedEffect_t) {
@@ -1224,8 +1224,8 @@ ApplicationInit(
     ZPAL_STATUS_OK == ZAF_nvm_app_read(FILE_ID_NABUCASA_LED, &ledStorage, sizeof(ledStorage))
     && ledStorage.valid
   ) {
-    bool state = ledStorage.r > 0 || ledStorage.g > 0 || ledStorage.b > 0;
-    rgb_t color = state ? cold_white : (rgb_t) {0, 0, 0};
+    bool state = ledStorage.r > black.R || ledStorage.g > black.G || ledStorage.b > black.B;
+    rgb_t color = state ? cold_white : black;
     ledEffectUser = (LedEffect_t) {
       .type = LED_EFFECT_SOLID,
       .effect.solid = {
@@ -1235,7 +1235,8 @@ ApplicationInit(
     };
     set_color_buffer(color);
   } else {
-    set_color_buffer(cold_white);
+    // Default to off
+    set_color_buffer(black);
   }
 
   // Try to restore configuration settings from NVM
