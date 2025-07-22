@@ -83,6 +83,8 @@ void func_id_nabu_casa(uint8_t inputLength,
 #if SUPPORT_LED
     BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_LED_GET);
     BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_LED_SET);
+    BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_LED_GET_BINARY);
+    BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_LED_SET_BINARY);
     BITMASK_ADD_CMD(supportedBitmask, NABU_CASA_SYSTEM_INDICATION_SET);
 #endif
 #if SUPPORT_GYRO
@@ -106,13 +108,17 @@ void func_id_nabu_casa(uint8_t inputLength,
     // Get the current state of the LED
     rgb_t led_color = get_color_buffer();
 
-    pOutputBuffer[i++] = led_color.R;
-    pOutputBuffer[i++] = led_color.G;
-    pOutputBuffer[i++] = led_color.B;
+    // Ignore actual color values, report cold white or off
+    bool state = led_color.R > 0 || led_color.G > 0 || led_color.B > 0;
+    rgb_t color = state ? cold_white : (rgb_t){0, 0, 0};
+
+    pOutputBuffer[i++] = color.R;
+    pOutputBuffer[i++] = color.G;
+    pOutputBuffer[i++] = color.B;
     break;
 
   case NABU_CASA_LED_SET:
-    // HOST->ZW: NABU_CASA_LED_SET | r | g | b | [ effect | speed ]
+    // HOST->ZW: NABU_CASA_LED_SET | r | g | b
     // ZW->HOST: NABU_CASA_LED_SET | true
 
     if (inputLength >= 4)
@@ -121,82 +127,150 @@ void func_id_nabu_casa(uint8_t inputLength,
       uint8_t r = pInputBuffer[pos++];
       uint8_t g = pInputBuffer[pos++];
       uint8_t b = pInputBuffer[pos++];
-      rgb_t color = {g, r, b};
+      // rgb_t color = {g, r, b};
 
-      switch (pInputBuffer[pos++])
-      {
-      case NC_LED_FX_NOT_SET:
-      {
-        // Clear the LED effect
-        ledEffectUser = (LedEffect_t){
-            .type = LED_EFFECT_NOT_SET};
-        break;
-      }
-
-      case NC_LED_FX_SOLID:
-      {
-        // Set solid color as the LED effect
-        LedEffectSolid_t solid = {
-            .color = color,
-            .modified = true};
-        ledEffectUser = (LedEffect_t){
-            .type = LED_EFFECT_SOLID,
-            .effect.solid = solid};
-        break;
-      }
-
-      case NC_LED_FX_FADE:
-      {
-        // Parse effect
-        // Default duration is 1s
-        uint8_t ticksPerStep = 1;
-        if (inputLength > pos)
-        {
-          // Parse speed
-          ticksPerStep = pInputBuffer[pos++];
-        }
-
-        // Set fade effect as the LED effect
-        LedEffectFade_t fade = {
-            .color = color,
-            .brightness = FADE_MAX_BRIGHTNESS,
-            .increasing = false,
-            .ticksPerStep = ticksPerStep,
-            .stepSize = 1,
-            .tickCounter = 0};
-        ledEffectUser = (LedEffect_t){
-            .type = LED_EFFECT_FADE,
-            .effect.fade = fade};
-        break;
-      }
-      }
+      // Ignore actual color values, use cold white or off
+      bool state = r > 0 || g > 0 || b > 0;
+      rgb_t color = state ? cold_white : (rgb_t){0, 0, 0};
+      LedEffectSolid_t solid = {
+        .color = color,
+        .modified = true};
+      ledEffectUser = (LedEffect_t){
+        .type = LED_EFFECT_SOLID,
+        .effect.solid = solid};
 
       // Store the current color in NVM, so it can be restored after a reboot
-      NabuCasaLedStorage_t ledStorage;
       // FIXME: Only override if something changed
+      NabuCasaLedStorage_t ledStorage = (NabuCasaLedStorage_t) {
+        .valid = true,
+        .r = color.R,
+        .g = color.G,
+        .b = color.B
+      };
 
-      if (ledEffectUser.type == LED_EFFECT_NOT_SET)
-      {
-        ledStorage = (NabuCasaLedStorage_t){
-            .valid = false,
-            .r = 0,
-            .g = 0,
-            .b = 0};
-      }
-      else
-      {
-        ledStorage = (NabuCasaLedStorage_t){
-            .valid = true,
-            .r = r,
-            .g = g,
-            .b = b};
-      }
+
+      // switch (pInputBuffer[pos++])
+      // {
+      // case NC_LED_FX_NOT_SET:
+      // {
+      //   // Clear the LED effect
+      //   ledEffectUser = (LedEffect_t){
+      //       .type = LED_EFFECT_NOT_SET};
+      //   break;
+      // }
+
+      // case NC_LED_FX_SOLID:
+      // {
+      //   // Set solid color as the LED effect
+      //   LedEffectSolid_t solid = {
+      //       .color = color,
+      //       .modified = true};
+      //   ledEffectUser = (LedEffect_t){
+      //       .type = LED_EFFECT_SOLID,
+      //       .effect.solid = solid};
+      //   break;
+      // }
+
+      // case NC_LED_FX_FADE:
+      // {
+      //   // Parse effect
+      //   // Default duration is 1s
+      //   uint8_t ticksPerStep = 1;
+      //   if (inputLength > pos)
+      //   {
+      //     // Parse speed
+      //     ticksPerStep = pInputBuffer[pos++];
+      //   }
+
+      //   // Set fade effect as the LED effect
+      //   LedEffectFade_t fade = {
+      //       .color = color,
+      //       .brightness = FADE_MAX_BRIGHTNESS,
+      //       .increasing = false,
+      //       .ticksPerStep = ticksPerStep,
+      //       .stepSize = 1,
+      //       .tickCounter = 0};
+      //   ledEffectUser = (LedEffect_t){
+      //       .type = LED_EFFECT_FADE,
+      //       .effect.fade = fade};
+      //   break;
+      // }
+      // }
+
+      // // Store the current color in NVM, so it can be restored after a reboot
+      // NabuCasaLedStorage_t ledStorage;
+      // // FIXME: Only override if something changed
+
+      // if (ledEffectUser.type == LED_EFFECT_NOT_SET)
+      // {
+      //   ledStorage = (NabuCasaLedStorage_t){
+      //       .valid = false,
+      //       .r = 0,
+      //       .g = 0,
+      //       .b = 0};
+      // }
+      // else
+      // {
+      //   ledStorage = (NabuCasaLedStorage_t){
+      //       .valid = true,
+      //       .r = r,
+      //       .g = g,
+      //       .b = b};
+      // }
       ZAF_nvm_app_write(FILE_ID_NABUCASA_LED, &ledStorage, sizeof(ledStorage));
 
       cmdRes = true;
     }
     pOutputBuffer[i++] = cmdRes;
     break;
+
+  case NABU_CASA_LED_GET_BINARY:
+  {
+    // HOST->ZW: NABU_CASA_LED_GET
+    // ZW->HOST: NABU_CASA_LED_GET | state |
+
+    // Get the current state of the LED
+    rgb_t led_color = get_color_buffer();
+    if (led_color.R != 0 || led_color.G != 0 || led_color.B != 0) {
+      pOutputBuffer[i++] = true; // LED is on
+    } else {
+      pOutputBuffer[i++] = false; // LED is off
+    }
+    break;
+  }
+
+  case NABU_CASA_LED_SET_BINARY:
+  {
+    // HOST->ZW: NABU_CASA_LED_SET | state
+    // ZW->HOST: NABU_CASA_LED_SET | true
+
+    if (inputLength >= 2)
+    {
+      // Set solid color as the LED effect
+      bool state = pInputBuffer[1] != 0;
+      rgb_t color = state ? cold_white : (rgb_t){0, 0, 0};
+      LedEffectSolid_t solid = {
+        .color = color,
+        .modified = true};
+      ledEffectUser = (LedEffect_t){
+        .type = LED_EFFECT_SOLID,
+        .effect.solid = solid};
+
+      // Store the current color in NVM, so it can be restored after a reboot
+      // FIXME: Only override if something changed
+      NabuCasaLedStorage_t ledStorage = (NabuCasaLedStorage_t) {
+        .valid = true,
+        .r = color.R,
+        .g = color.G,
+        .b = color.B
+      };
+      ZAF_nvm_app_write(FILE_ID_NABUCASA_LED, &ledStorage, sizeof(ledStorage));
+
+      cmdRes = true;
+    }
+    pOutputBuffer[i++] = cmdRes;
+    break;
+  }
 
   case NABU_CASA_SYSTEM_INDICATION_SET:
     // HOST->ZW (REQ): NABU_CASA_SYSTEM_INDICATION_SET | severity

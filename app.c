@@ -1078,16 +1078,16 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
 }
 
 // Called when the button next to the USB port is pressed or released
-void sl_button_on_change(const sl_button_t *handle)
-{
-  if (handle->get_state(handle)) {
-    rgb_t color = {255, 0, 0};
-    set_color_buffer(color);
-  } else {
-    rgb_t color = {4, 0, 0};
-    set_color_buffer(color);
-  }
-}
+// void sl_button_on_change(const sl_button_t *handle)
+// {
+  // if (handle->get_state(handle)) {
+  //   rgb_t color = {255, 0, 0};
+  //   set_color_buffer(color);
+  // } else {
+  //   rgb_t color = {4, 0, 0};
+  //   set_color_buffer(color);
+  // }
+// }
 
 /*==============================   ApplicationInitSW   ======================
 **    Initialization of the Application Software
@@ -1217,17 +1217,15 @@ ApplicationInit(
     }
   }
 
-  // Try to restore the user-defined color from NVM
+  // Try to restore the user-defined LED state from NVM. In the first revision this was stored
+  // as RGB values, but now we only care about on/off
   NabuCasaLedStorage_t ledStorage = {0};
   if (
     ZPAL_STATUS_OK == ZAF_nvm_app_read(FILE_ID_NABUCASA_LED, &ledStorage, sizeof(ledStorage))
     && ledStorage.valid
   ) {
-    rgb_t color = {
-      .G = ledStorage.g,
-      .R = ledStorage.r,
-      .B = ledStorage.b
-    };
+    bool state = ledStorage.r > 0 || ledStorage.g > 0 || ledStorage.b > 0;
+    rgb_t color = state ? cold_white : (rgb_t) {0, 0, 0};
     ledEffectUser = (LedEffect_t) {
       .type = LED_EFFECT_SOLID,
       .effect.solid = {
