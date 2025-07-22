@@ -857,8 +857,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         .increasing = false,
         .ticksPerStep = 2,
         .stepSize = 1,
-        .tickCounter = 0,
-        .rawColor = true
+        .tickCounter = 0
       };
       ledEffectDefault = (LedEffect_t) {
         .type = LED_EFFECT_FADE,
@@ -876,8 +875,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         // If we were not in fade mode, set the color to white
         LedEffectSolid_t solid = {
           .color = cold_white,
-          .modified = true,
-          .rawColor = true
+          .modified = true
         };
         ledEffectDefault = (LedEffect_t) {
           .type = LED_EFFECT_SOLID,
@@ -938,7 +936,6 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         // Indicate incorrect tilt using the LED
         LedEffectBlink_t blink = {
           .color = cold_white,
-          .rawColor = true,
           .levelBright = FADE_MAX_BRIGHTNESS,
           .levelDim = FADE_MIN_BRIGHTNESS,
           // 1 tick = 2ms, blink 250ms on, 250ms off
@@ -983,10 +980,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
           // For solid LED effect, set the color once
           if (ledEffect->effect.solid.modified) {
             ledEffect->effect.solid.modified = false;
-            set_color_buffer(
-              ledEffect->effect.solid.color,
-              ledEffect->effect.solid.rawColor
-            );
+            set_color_buffer(ledEffect->effect.solid.color);
           }
           break;
         }
@@ -1000,8 +994,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
             // Switch to solid mode
             LedEffectSolid_t solid = {
               .color = fade.color,
-              .modified = true,
-              .rawColor = fade.rawColor
+              .modified = true
             };
             *ledEffect = (LedEffect_t) {
               .type = LED_EFFECT_SOLID,
@@ -1035,7 +1028,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
               (uint8_t) b
             };
 
-            set_color_buffer(color, fade.rawColor);
+            set_color_buffer(color);
           }
 
           fade.tickCounter = (fade.tickCounter + 1) % fade.ticksPerStep;
@@ -1062,7 +1055,7 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
               (uint8_t) b
             };
 
-            set_color_buffer(color, blink.rawColor);
+            set_color_buffer(color);
           }
 
           uint8_t maxTicks = blink.bright ? blink.ticksBright : blink.ticksDim;
@@ -1089,10 +1082,10 @@ void sl_button_on_change(const sl_button_t *handle)
 {
   if (handle->get_state(handle)) {
     rgb_t color = {255, 0, 0};
-    set_color_buffer(color, true);
+    set_color_buffer(color);
   } else {
     rgb_t color = {4, 0, 0};
-    set_color_buffer(color, true);
+    set_color_buffer(color);
   }
 }
 
@@ -1242,9 +1235,9 @@ ApplicationInit(
         .modified = true
       }
     };
-    set_color_buffer(color, false);
+    set_color_buffer(color);
   } else {
-    set_color_buffer(cold_white, true);
+    set_color_buffer(cold_white);
   }
 
   // Try to restore configuration settings from NVM

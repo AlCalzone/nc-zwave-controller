@@ -159,7 +159,6 @@ void func_id_nabu_casa(uint8_t inputLength,
         // Set fade effect as the LED effect
         LedEffectFade_t fade = {
             .color = color,
-            .rawColor = false,
             .brightness = FADE_MAX_BRIGHTNESS,
             .increasing = false,
             .ticksPerStep = ticksPerStep,

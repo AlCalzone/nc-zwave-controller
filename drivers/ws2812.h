@@ -38,11 +38,10 @@ typedef struct rgb_t{
 
 static const rgb_t red = { 0x00, 0xFF, 0x00 };
 static const rgb_t yellow = { 0x80, 0xFF, 0x00 };
-static const rgb_t warm_white = { 0xE3, 0xFF, 0xB5 };
 static const rgb_t cold_white = { 0xFF, 0xFF, 0xFF };
 
 rgb_t get_color_buffer();
-void set_color_buffer(rgb_t input_color, bool raw_color);
+void set_color_buffer(rgb_t input_color);
 void initWs2812(void);
 // void color_test();
 
