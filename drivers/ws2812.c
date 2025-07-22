@@ -149,21 +149,30 @@ rgb_t get_color_buffer()
   return rgb_color_buffer;
 }
 
-void set_color_buffer(rgb_t input_color)
+void set_color_buffer(rgb_t input_color, bool raw_color)
 {
   // Remember the current color for later querying
   rgb_color_buffer = input_color;
 
-  // Scale the G and B color components down, because they are much brighter than the red component
-  uint8_t actual_g = (uint8_t) ((int)input_color.G * 3 / 5);
-  uint8_t actual_r = input_color.R;
-  uint8_t actual_b = input_color.B >> 1;
+  rgb_t actual_color;
+  if (raw_color) {
+    actual_color = (rgb_t) {
+      .G = input_color.G,
+      .R = input_color.R,
+      .B = input_color.B
+    };
+  } else {
+    // Scale the G and B color components down, because they are much brighter than the red component
+    uint8_t actual_g = (uint8_t) ((int)input_color.G * 3 / 5);
+    uint8_t actual_r = input_color.R;
+    uint8_t actual_b = input_color.B >> 1;
 
-  rgb_t actual_color = {
-    .G = actual_g,
-    .R = actual_r,
-    .B = actual_b
-  };
+    actual_color = (rgb_t) {
+      .G = actual_g,
+      .R = actual_r,
+      .B = actual_b
+    };
+  }
 
   // Make it easier to access the color bytes using a pointer
   rgb_t input_colors[NUMBER_OF_LEDS] = {

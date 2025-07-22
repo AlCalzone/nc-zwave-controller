@@ -277,6 +277,7 @@ void trigger_led_effect_refresh(void);
 typedef struct LedEffectSolid {
   rgb_t color;
   bool modified;
+  bool rawColor; // If true, do not attempt color correction
 } LedEffectSolid_t;
 
 // Avoid magic numbers
@@ -289,15 +290,29 @@ typedef struct LedEffectFade {
   rgb_t color;
   uint8_t brightness;
   uint8_t ticksPerStep;
+  uint8_t stepSize;
   uint8_t tickCounter;
   bool increasing;
   bool stopAtMax;
+  bool rawColor; // If true, do not attempt color correction
 } LedEffectFade_t;
+
+typedef struct LedEffectBlink {
+  rgb_t color;
+  uint8_t levelBright;
+  uint8_t levelDim;
+  uint8_t ticksBright;
+  uint8_t ticksDim;
+  uint8_t tickCounter;
+  bool bright;
+  bool rawColor; // If true, do not attempt color correction
+} LedEffectBlink_t;
 
 typedef enum {
   LED_EFFECT_NOT_SET,
   LED_EFFECT_SOLID,
-  LED_EFFECT_FADE
+  LED_EFFECT_FADE,
+  LED_EFFECT_BLINK
 } LedEffectType_t;
 
 typedef struct {
@@ -305,6 +320,7 @@ typedef struct {
   union {
     LedEffectSolid_t solid;
     LedEffectFade_t fade;
+    LedEffectBlink_t blink;
   } effect;
 } LedEffect_t;
 

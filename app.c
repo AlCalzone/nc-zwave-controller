@@ -56,6 +56,10 @@
 #include "drivers/qma6100p.h"
 #include "cmds_proprietary.h"
 
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+
+
 /********************************
  * Data Acquisition Task
  *******************************/
@@ -848,11 +852,13 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
     case EVENT_APP_USERTASK_READY: {
       // Fade slowly to white
       LedEffectFade_t fade = {
-        .color = white,
+        .color = cold_white,
         .brightness = FADE_MAX_BRIGHTNESS,
         .increasing = false,
         .ticksPerStep = 2,
-        .tickCounter = 0
+        .stepSize = 1,
+        .tickCounter = 0,
+        .rawColor = true
       };
       ledEffectDefault = (LedEffect_t) {
         .type = LED_EFFECT_FADE,
@@ -869,8 +875,9 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
       } else {
         // If we were not in fade mode, set the color to white
         LedEffectSolid_t solid = {
-          .color = white,
-          .modified = true
+          .color = cold_white,
+          .modified = true,
+          .rawColor = true
         };
         ledEffectDefault = (LedEffect_t) {
           .type = LED_EFFECT_SOLID,
@@ -929,16 +936,20 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
         // Tilt no longer detected when crossing the lower threshold
         bTiltDetected = true;
         // Indicate incorrect tilt using the LED
-        LedEffectFade_t fade = {
-          .color = yellow,
-          .brightness = FADE_MAX_BRIGHTNESS,
-          .increasing = false,
-          .ticksPerStep = 1,
-          .tickCounter = 0
+        LedEffectBlink_t blink = {
+          .color = cold_white,
+          .rawColor = true,
+          .levelBright = FADE_MAX_BRIGHTNESS,
+          .levelDim = FADE_MIN_BRIGHTNESS,
+          // 1 tick = 2ms, blink 250ms on, 250ms off
+          .ticksBright = 125,
+          .ticksDim = 125,
+          .tickCounter = 0,
+          .bright = false,
         };
         ledEffectTilt = (LedEffect_t) {
-          .type = LED_EFFECT_FADE,
-          .effect.fade = fade
+          .type = LED_EFFECT_BLINK,
+          .effect.blink = blink
         };
       }
 
@@ -972,7 +983,10 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
           // For solid LED effect, set the color once
           if (ledEffect->effect.solid.modified) {
             ledEffect->effect.solid.modified = false;
-            set_color_buffer(ledEffect->effect.solid.color);
+            set_color_buffer(
+              ledEffect->effect.solid.color,
+              ledEffect->effect.solid.rawColor
+            );
           }
           break;
         }
@@ -986,7 +1000,8 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
             // Switch to solid mode
             LedEffectSolid_t solid = {
               .color = fade.color,
-              .modified = true
+              .modified = true,
+              .rawColor = fade.rawColor
             };
             *ledEffect = (LedEffect_t) {
               .type = LED_EFFECT_SOLID,
@@ -997,12 +1012,14 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
 
           if (fade.tickCounter == 0) {
             if (fade.increasing) {
-              fade.brightness++;
+              uint8_t delta = min(fade.stepSize, FADE_MAX_BRIGHTNESS - fade.brightness);
+              fade.brightness += delta;
               if (fade.brightness == FADE_MAX_BRIGHTNESS) {
                 fade.increasing = false;
               }
             } else {
-              fade.brightness--;
+              uint8_t delta = min(fade.stepSize, fade.brightness - FADE_MIN_BRIGHTNESS);
+              fade.brightness -= delta;
               if (fade.brightness == FADE_MIN_BRIGHTNESS) {
                 fade.increasing = true;
               }
@@ -1018,11 +1035,39 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
               (uint8_t) b
             };
 
-            set_color_buffer(color);
+            set_color_buffer(color, fade.rawColor);
           }
 
           fade.tickCounter = (fade.tickCounter + 1) % fade.ticksPerStep;
           ledEffect->effect.fade = fade;
+          break;
+        }
+
+        case LED_EFFECT_BLINK: {
+          // For blinking, switch between min and max brightness
+          // and keep the brightness for the given number of ticks
+          LedEffectBlink_t blink = ledEffect->effect.blink;
+
+          if (blink.tickCounter == 0) {
+            blink.bright = !blink.bright;
+            uint8_t level = blink.bright ? blink.levelBright : blink.levelDim;
+
+            uint16_t r = ((uint16_t) blink.color.R) * ((uint16_t) level) / FADE_MAX_BRIGHTNESS;
+            uint16_t g = ((uint16_t) blink.color.G) * ((uint16_t) level) / FADE_MAX_BRIGHTNESS;
+            uint16_t b = ((uint16_t) blink.color.B) * ((uint16_t) level) / FADE_MAX_BRIGHTNESS;
+
+            rgb_t color = {
+              (uint8_t) g,
+              (uint8_t) r,
+              (uint8_t) b
+            };
+
+            set_color_buffer(color, blink.rawColor);
+          }
+
+          uint8_t maxTicks = blink.bright ? blink.ticksBright : blink.ticksDim;
+          blink.tickCounter = (blink.tickCounter + 1) % maxTicks;
+          ledEffect->effect.blink = blink;
           break;
         }
 
@@ -1044,10 +1089,10 @@ void sl_button_on_change(const sl_button_t *handle)
 {
   if (handle->get_state(handle)) {
     rgb_t color = {255, 0, 0};
-    set_color_buffer(color);
+    set_color_buffer(color, true);
   } else {
     rgb_t color = {4, 0, 0};
-    set_color_buffer(color);
+    set_color_buffer(color, true);
   }
 }
 
@@ -1197,9 +1242,9 @@ ApplicationInit(
         .modified = true
       }
     };
-    set_color_buffer(color);
+    set_color_buffer(color, false);
   } else {
-    set_color_buffer(white);
+    set_color_buffer(cold_white, true);
   }
 
   // Try to restore configuration settings from NVM
