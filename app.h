@@ -283,7 +283,7 @@ typedef struct LedEffectSolid {
 #define FADE_MAX_BRIGHTNESS 0xff
 #define FADE_MIN_BRIGHTNESS 25 // Don't turn off while fading, looks odd
 // Used to switch from fade to solid when the LED is bright enough
-#define FADE_DIM_THRESHOLD 40
+#define FADE_BRIGHT_THRESHOLD 0xe0
 
 typedef struct LedEffectFade {
   rgb_t color;
@@ -292,7 +292,7 @@ typedef struct LedEffectFade {
   uint8_t stepSize;
   uint8_t tickCounter;
   bool increasing;
-  bool stopAtMin;
+  bool stopAtMax;
 } LedEffectFade_t;
 
 typedef struct LedEffectBlink {

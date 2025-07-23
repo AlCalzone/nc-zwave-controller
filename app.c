@@ -853,8 +853,8 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
       // Fade slowly to white
       LedEffectFade_t fade = {
         .color = cold_white,
-        .brightness = FADE_MIN_BRIGHTNESS,
-        .increasing = true,
+        .brightness = FADE_MAX_BRIGHTNESS,
+        .increasing = false,
         .ticksPerStep = 2,
         .stepSize = 1,
         .tickCounter = 0
@@ -870,11 +870,11 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
     case EVENT_APP_CONNECTED: {
       if (ledEffectDefault.type == LED_EFFECT_FADE) {
         // Stop the animation to indicate that we're connected
-        ledEffectDefault.effect.fade.stopAtMin = true;
+        ledEffectDefault.effect.fade.stopAtMax = true;
       } else {
-        // If we were not in fade mode, set the color to black
+        // If we were not in fade mode, set the color to white
         LedEffectSolid_t solid = {
-          .color = black,
+          .color = cold_white,
           .modified = true
         };
         ledEffectDefault = (LedEffect_t) {
@@ -990,10 +990,10 @@ zaf_event_distributor_app_proprietary(event_nc_t *event)
           // and update the color
           LedEffectFade_t fade = ledEffect->effect.fade;
 
-          if (fade.brightness <= FADE_DIM_THRESHOLD && fade.stopAtMin) {
+          if (fade.brightness >= FADE_BRIGHT_THRESHOLD && fade.stopAtMax) {
             // Switch to solid mode
             LedEffectSolid_t solid = {
-              .color = black,
+              .color = fade.color,
               .modified = true
             };
             *ledEffect = (LedEffect_t) {
@@ -1235,8 +1235,8 @@ ApplicationInit(
     };
     set_color_buffer(color);
   } else {
-    // Default to off
-    set_color_buffer(black);
+    // Default to on
+    set_color_buffer(cold_white);
   }
 
   // Try to restore configuration settings from NVM
