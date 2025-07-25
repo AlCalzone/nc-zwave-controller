@@ -48,5 +48,7 @@ cp build/*.Makefile ./
 cp build/*.mak ./
 # Fix the include path to point to the current directory
 sed -i 's/-I\.\. /-I\. /g' *.mak
+# Make sure the correct version config file is used
+cp config/zw_version_config.h build/config/zw_version_config.h
 
 make release -B -f $PROJ_NAME.Makefile POST_BUILD_EXE=$POST_BUILD_EXE ARM_GCC_DIR=$TOOLCHAIN
